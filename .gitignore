@@ -1,0 +1,14 @@
+DesignNotes/
+src/Domain/obj
+src/Domain/bin
+src/Workflow/obj
+src/Workflow/bin
+src/Infrastructure/obj
+src/Infrastructure/bin
+src/API/obj
+src/API/bin
+src/Services/obj
+src/Services/bin
+tests/Tests/obj
+tests/Tests/bin
+*.db
