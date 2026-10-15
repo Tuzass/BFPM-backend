@@ -10,9 +10,8 @@ public class User
 
     private User() { }
 
-    public User(int id, string username, string email, string passwordHash)
+    public User(string username, string email, string passwordHash)
     {
-        ID = id;
         Username = username;
         Email = email;
         PasswordHash = passwordHash;

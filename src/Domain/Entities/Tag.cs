@@ -12,9 +12,8 @@ public class Tag
         
     }
 
-    public Tag(int id, int projectID, string name, int? version = null)
+    public Tag(int projectID, string name, int? version = null)
     {
-        ID = id;
         ProjectID = projectID;
         Name = name;
 

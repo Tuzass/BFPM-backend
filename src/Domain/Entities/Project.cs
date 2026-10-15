@@ -18,9 +18,8 @@ public class Project
         
     }
 
-    public Project(int id, int ownerID, string name, string description, ProjectStatus status, DateTime? createdAt, DateTime? completedAt, int? version = null)
+    public Project(int ownerID, string name, string description, ProjectStatus status, DateTime? createdAt, DateTime? completedAt, int? version = null)
     {
-        ID = id;
         OwnerID = ownerID;
         Name = name;
         Description = description;

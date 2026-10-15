@@ -20,9 +20,8 @@ public class TaskItem
         
     }
 
-    public TaskItem(int id, int projectID, string name, string description, TaskItemStatus status, TaskItemPriority priority, DateTime? dueDate, DateTime? createdAt, DateTime? completedAt, int? version = null)
+    public TaskItem(int projectID, string name, string description, TaskItemStatus status, TaskItemPriority priority, DateTime? dueDate, DateTime? createdAt, DateTime? completedAt, int? version = null)
     {
-        ID = id;
         ProjectID = projectID;
         Name = name;
         Description = description;
