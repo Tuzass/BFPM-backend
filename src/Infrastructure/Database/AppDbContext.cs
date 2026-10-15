@@ -8,7 +8,6 @@ namespace Infrastructure.Database;
 public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(options)
 {
     public DbSet<User> Users {get; set;}
-    public DbSet<Folder> Folders {get; set;}
     public DbSet<Project> Projects {get; set;}
     public DbSet<TaskItem> Tasks {get; set;}
     public DbSet<Tag> Tags {get; set;}
@@ -20,7 +19,6 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<RequestedAction> RequestedActions {get; set;}
     public DbSet<SystemAction> SystemActions {get; set;}
     public DbSet<WorkflowRule> WorkflowRules {get; set;}
-    public DbSet<FolderProjectLink> FolderProjectLinks {get; set;}
     public DbSet<TaskTagLink> TaskTagLinks {get; set;}
     public DbSet<ProjectAssignment> ProjectAssignments {get; set;}
     public DbSet<TaskAssignment> TaskAssignments {get; set;}
@@ -38,23 +36,6 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
         modelBuilder.Entity<User>()
             .HasIndex(u => u.Email).IsUnique();
-
-        modelBuilder.Entity<Folder>()
-            .Property(f => f.ID)
-            .ValueGeneratedOnAdd();
-
-        modelBuilder.Entity<Folder>()
-            .Property(f => f.Name)
-            .UseCollation("NOCASE");
-
-        modelBuilder.Entity<Folder>()
-            .HasOne<User>()
-            .WithMany()
-            .HasForeignKey(f => f.OwnerID)
-            .OnDelete(DeleteBehavior.NoAction);
-        
-        modelBuilder.Entity<Folder>()
-            .HasIndex(f => new {f.OwnerID, f.Name}).IsUnique();
         
         modelBuilder.Entity<Project>()
             .Property(p => p.ID)
@@ -136,21 +117,6 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
         modelBuilder.Entity<WorkflowRule>()
             .HasIndex(wr => new {wr.Trigger, wr.State}).IsUnique();
-
-        modelBuilder.Entity<FolderProjectLink>()
-            .HasKey(fpl => new {fpl.FolderID, fpl.ProjectID});
-        
-        modelBuilder.Entity<FolderProjectLink>()
-            .HasOne<Folder>()
-            .WithMany()
-            .HasForeignKey(fpl => fpl.FolderID)
-            .OnDelete(DeleteBehavior.Cascade);
-
-        modelBuilder.Entity<FolderProjectLink>()
-            .HasOne<Project>()
-            .WithMany()
-            .HasForeignKey(fpl => fpl.ProjectID)
-            .OnDelete(DeleteBehavior.Cascade);
         
         modelBuilder.Entity<TaskTagLink>()
             .HasKey(ttl => new {ttl.TaskID, ttl.TagID});
