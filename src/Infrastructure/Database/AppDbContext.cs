@@ -33,9 +33,17 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
         modelBuilder.Entity<User>()
             .HasIndex(u => u.Username).IsUnique();
+        
+        modelBuilder.Entity<User>()
+            .Property(u => u.Username)
+            .UseCollation("NOCASE");
 
         modelBuilder.Entity<User>()
             .HasIndex(u => u.Email).IsUnique();
+        
+        modelBuilder.Entity<User>()
+            .Property(u => u.Email)
+            .UseCollation("NOCASE");
         
         modelBuilder.Entity<Project>()
             .Property(p => p.ID)
