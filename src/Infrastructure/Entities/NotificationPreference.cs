@@ -7,8 +7,8 @@ public class NotificationPreference
     public int UserID {get; private set;}
     public int ProjectID {get; private set;}
     public Trigger Trigger {get; private set;}
-    bool Enabled {get; set;}
-    bool SendEmail {get; set;}
+    public bool Enabled {get; set;}
+    public bool SendEmail {get; set;}
 
     public NotificationPreference(int userID, int projectID, Trigger trigger)
     {
