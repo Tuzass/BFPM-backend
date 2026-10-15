@@ -3,9 +3,9 @@
 public class User
 {
     public int ID {get; private set;}
-    public string Username {get; private set;} = null!;
-    public string Email {get; private set;} = null!;
-    public string PasswordHash {get; private set;} = null!;
+    public string Username {get; set;} = null!;
+    public string Email {get; set;} = null!;
+    public string PasswordHash {get; set;} = null!;
     public bool IsActive {get; set;}
 
     private User() { }
