@@ -335,6 +335,7 @@ public static class DomainService
             context.TaskTagLinks.AddRange(newLinks);
             await context.SaveChangesAsync();
 
+            await WorkflowEngine.CreateSystemActionPreferences(project.ID);
             return project.ID;
         }
     }
