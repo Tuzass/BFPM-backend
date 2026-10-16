@@ -22,7 +22,6 @@ public enum Trigger
     TaskPriorityChanged,
     TaskDueDateChanged,
     TaskDeleted,
-    ProjectCreated,
     ProjectUploaded,
     ProjectNameChanged,
     ProjectDescriptionChanged,
