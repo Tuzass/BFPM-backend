@@ -121,7 +121,15 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             .OnDelete(DeleteBehavior.Cascade);
         
         modelBuilder.Entity<SystemAction>()
-            .HasIndex(sa => new {sa.ActionType, sa.ActionTarget, sa.NewTargetState}).IsUnique();
+            .Property(u => u.ID)
+            .ValueGeneratedNever();
+        
+        modelBuilder.Entity<SystemAction>()
+            .HasIndex(sa => new {sa.Type, sa.Target, sa.NewState}).IsUnique();
+        
+        modelBuilder.Entity<WorkflowRule>()
+            .Property(u => u.ID)
+            .ValueGeneratedNever();
 
         modelBuilder.Entity<WorkflowRule>()
             .HasIndex(wr => new {wr.Trigger, wr.State}).IsUnique();
@@ -190,13 +198,13 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             .HasOne<WorkflowRule>()
             .WithMany()
             .HasForeignKey(sap => sap.RuleID)
-            .OnDelete(DeleteBehavior.Cascade);
+            .OnDelete(DeleteBehavior.NoAction);
         
         modelBuilder.Entity<SystemActionPreference>()
             .HasOne<SystemAction>()
             .WithMany()
             .HasForeignKey(sap => sap.ActionID)
-            .OnDelete(DeleteBehavior.Cascade);
+            .OnDelete(DeleteBehavior.NoAction);
         
         modelBuilder.Entity<SystemActionPreference>()
             .HasOne<Project>()

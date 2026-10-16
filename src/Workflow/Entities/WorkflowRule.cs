@@ -8,8 +8,9 @@ public class WorkflowRule
     public Trigger Trigger {get; private set;}
     public State State {get; private set;}
 
-    public WorkflowRule(Trigger trigger, State state)
+    public WorkflowRule(int id, Trigger trigger, State state)
     {
+        ID = id;
         Trigger = trigger;
         State = state;
     }

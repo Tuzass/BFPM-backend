@@ -5,15 +5,16 @@ namespace Workflow.Entities;
 public class SystemAction
 {
     public int ID {get; private set;}
-    public ActionType ActionType {get; private set;}
-    public ActionTarget ActionTarget {get; private set;}
-    public State NewTargetState {get; private set;}
+    public ActionType Type {get; private set;}
+    public ActionTarget Target {get; private set;}
+    public State NewState {get; private set;}
 
-    public SystemAction(ActionType actionType, ActionTarget actionTarget, State newTargetState)
+    public SystemAction(int id, ActionType type, ActionTarget target, State newState)
     {
-        ActionType = actionType;
-        ActionTarget = actionTarget;
-        NewTargetState = newTargetState;
+        ID = id;
+        Type = type;
+        Target = target;
+        NewState = newState;
     }
 
     private SystemAction()
