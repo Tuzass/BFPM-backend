@@ -23,6 +23,9 @@ public static class UserService
             context.Add(user);
             await context.SaveChangesAsync();
         }
+
+        // TODO: create notification
+        // TODO: log activity?
     }
 
     public static void Login()
