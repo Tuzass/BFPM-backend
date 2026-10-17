@@ -100,13 +100,36 @@ public static class UserService
         }
     }
 
-    public static async Task DeleteUser(int userID)
+    public static async Task ActivateUser(int userID)
     {
         using (var context = AppDbContextFactory.CreateContext())
         {
-            var user = await GetUser(userID);
+            var user = await context.Users
+                .SingleOrDefaultAsync(u => u.ID == userID);
             
-            context.Remove(user);
+            if (user is null)
+            {
+                throw new InexistentUserException();
+            }
+            
+            user.IsActive = true;
+            await context.SaveChangesAsync();
+        }
+    }
+
+    public static async Task DeactivateUser(int userID)
+    {
+        using (var context = AppDbContextFactory.CreateContext())
+        {
+            var user = await context.Users
+                .SingleOrDefaultAsync(u => u.ID == userID);
+            
+            if (user is null)
+            {
+                throw new InexistentUserException();
+            }
+            
+            user.IsActive = false;
             await context.SaveChangesAsync();
         }
     }
