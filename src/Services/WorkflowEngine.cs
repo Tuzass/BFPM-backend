@@ -3,6 +3,7 @@ using Infrastructure.Database;
 using Infrastructure.Entities;
 using Infrastructure.Enums;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
 using Services.Exceptions;
 using Workflow.Entities;
 using Workflow.Enums;
@@ -44,47 +45,48 @@ static public class WorkflowEngine
             new(6, Trigger.UserUnassignedFromTask, State.NoUsersAssignedToInProgressTask),
 
             new(7, Trigger.TagCreated, State.None),
-            new(8, Trigger.TagDeleted, State.None),
+            new(8, Trigger.TagNameChanged, State.None),
+            new(9, Trigger.TagDeleted, State.None),
 
-            new(9, Trigger.TagAssignedToTask, State.None),
-            new(10, Trigger.TagUnassignedFromTask, State.None),
+            new(10, Trigger.TagAssignedToTask, State.None),
+            new(11, Trigger.TagUnassignedFromTask, State.None),
 
-            new(11, Trigger.TaskCreated, State.None),
+            new(12, Trigger.TaskCreated, State.None),
 
-            new(12, Trigger.TaskDeleted, State.None),
-            new(13, Trigger.TaskNameChanged, State.None),
-            new(14, Trigger.TaskDescriptionChanged, State.None),
-            new(15, Trigger.TaskDueDateChanged, State.None),
-            new(16, Trigger.TaskStatusChanged, State.TaskStatusTodo),
-            new(17, Trigger.TaskStatusChanged, State.TaskStatusInProgress),
-            new(18, Trigger.TaskStatusChanged, State.TaskStatusOnHold),
-            new(19, Trigger.TaskStatusChanged, State.TaskStatusBlocked),
-            new(20, Trigger.TaskStatusChanged, State.TaskStatusCompleted),
-            new(21, Trigger.TaskPriorityChanged, State.TaskPriorityLow),
-            new(22, Trigger.TaskPriorityChanged, State.TaskPriorityMedium),
-            new(23, Trigger.TaskPriorityChanged, State.TaskPriorityHigh),
-            new(24, Trigger.TaskPriorityChanged, State.TaskPriorityUrgent),
+            new(13, Trigger.TaskDeleted, State.None),
+            new(14, Trigger.TaskNameChanged, State.None),
+            new(15, Trigger.TaskDescriptionChanged, State.None),
+            new(16, Trigger.TaskDueDateChanged, State.None),
+            new(17, Trigger.TaskStatusChanged, State.TaskStatusTodo),
+            new(18, Trigger.TaskStatusChanged, State.TaskStatusInProgress),
+            new(19, Trigger.TaskStatusChanged, State.TaskStatusOnHold),
+            new(20, Trigger.TaskStatusChanged, State.TaskStatusBlocked),
+            new(21, Trigger.TaskStatusChanged, State.TaskStatusCompleted),
+            new(22, Trigger.TaskPriorityChanged, State.TaskPriorityLow),
+            new(23, Trigger.TaskPriorityChanged, State.TaskPriorityMedium),
+            new(24, Trigger.TaskPriorityChanged, State.TaskPriorityHigh),
+            new(25, Trigger.TaskPriorityChanged, State.TaskPriorityUrgent),
 
-            new(25, Trigger.TaskCreated, State.TasksInProgress),
-            new(26, Trigger.TaskStatusChanged, State.TasksInProgress),
+            new(26, Trigger.TaskCreated, State.TasksInProgress),
+            new(27, Trigger.TaskStatusChanged, State.TasksInProgress),
 
-            new(27, Trigger.TaskStatusChanged, State.NoTasksInProgress),
-            new(28, Trigger.TaskDeleted, State.NoTasksInProgress),
+            new(28, Trigger.TaskStatusChanged, State.NoTasksInProgress),
+            new(29, Trigger.TaskDeleted, State.NoTasksInProgress),
 
-            new(29, Trigger.TaskStatusChanged, State.UsersAssignedToCompletedTask),
+            new(30, Trigger.TaskStatusChanged, State.UsersAssignedToCompletedTask),
 
-            new(30, Trigger.ProjectUploaded, State.None),
+            new(31, Trigger.ProjectUploaded, State.None),
 
-            new(31, Trigger.ProjectDeleted, State.None),
+            new(32, Trigger.ProjectDeleted, State.None),
 
-            new(32, Trigger.ProjectNameChanged, State.None),
-            new(33, Trigger.ProjectDescriptionChanged, State.None),
-            new(34, Trigger.ProjectStatusChanged, State.ProjectStatusActive),
+            new(33, Trigger.ProjectNameChanged, State.None),
+            new(34, Trigger.ProjectDescriptionChanged, State.None),
+            new(35, Trigger.ProjectStatusChanged, State.ProjectStatusActive),
 
-            new(35, Trigger.ProjectStatusChanged, State.ProjectStatusOnHold),
             new(36, Trigger.ProjectStatusChanged, State.ProjectStatusOnHold),
+            new(37, Trigger.ProjectStatusChanged, State.ProjectStatusOnHold),
 
-            new(37, Trigger.ProjectStatusChanged, State.ProjectStatusCompleted)
+            new(38, Trigger.ProjectStatusChanged, State.ProjectStatusCompleted)
         ];
 
         using (var context = AppDbContextFactory.CreateContext())
@@ -145,7 +147,7 @@ static public class WorkflowEngine
             new(8, 5, projectID),
 
             new(9, 1, projectID),
-            new(9, 4, projectID),
+            new(9, 3, projectID),
             new(9, 5, projectID),
 
             new(10, 1, projectID),
@@ -153,10 +155,10 @@ static public class WorkflowEngine
             new(10, 5, projectID),
 
             new(11, 1, projectID),
+            new(11, 4, projectID),
             new(11, 5, projectID),
 
             new(12, 1, projectID),
-            new(12, 4, projectID),
             new(12, 5, projectID),
 
             new(13, 1, projectID),
@@ -210,7 +212,6 @@ static public class WorkflowEngine
             new(25, 1, projectID),
             new(25, 4, projectID),
             new(25, 5, projectID),
-            new(25, 10, projectID),
 
             new(26, 1, projectID),
             new(26, 4, projectID),
@@ -220,7 +221,7 @@ static public class WorkflowEngine
             new(27, 1, projectID),
             new(27, 4, projectID),
             new(27, 5, projectID),
-            new(27, 11, projectID),
+            new(27, 10, projectID),
 
             new(28, 1, projectID),
             new(28, 4, projectID),
@@ -230,13 +231,14 @@ static public class WorkflowEngine
             new(29, 1, projectID),
             new(29, 4, projectID),
             new(29, 5, projectID),
-            new(29, 14, projectID),
+            new(29, 11, projectID),
 
             new(30, 1, projectID),
+            new(30, 4, projectID),
             new(30, 5, projectID),
+            new(30, 14, projectID),
 
             new(31, 1, projectID),
-            new(31, 4, projectID),
             new(31, 5, projectID),
 
             new(32, 1, projectID),
@@ -252,9 +254,8 @@ static public class WorkflowEngine
             new(34, 5, projectID),
 
             new(35, 1, projectID),
-            new(35, 3, projectID),
+            new(35, 4, projectID),
             new(35, 5, projectID),
-            new(35, 9, projectID),
 
             new(36, 1, projectID),
             new(36, 3, projectID),
@@ -264,7 +265,12 @@ static public class WorkflowEngine
             new(37, 1, projectID),
             new(37, 3, projectID),
             new(37, 5, projectID),
-            new(37, 8, projectID)
+            new(37, 9, projectID),
+
+            new(38, 1, projectID),
+            new(38, 3, projectID),
+            new(38, 5, projectID),
+            new(38, 8, projectID)
         ];
 
         using (var context = AppDbContextFactory.CreateContext())
@@ -319,19 +325,142 @@ static public class WorkflowEngine
 
     // methods that evaluate State
 
-    public static async Task<List<IssuedAction>> GenerateIssuedActions(SystemAction systemAction)
+    public static async Task<List<SystemAction>> Propagate(int projectID, Trigger trigger, State state)
     {
-        // returns the list of issued actions that are generated by propagating systemAction
-        return [];
+        using (var context = AppDbContextFactory.CreateContext())
+        {
+            return await context.WorkflowRules
+                .Where(wr => wr.Trigger == trigger && wr.State == state)
+                .Join(
+                    context.SystemActionPreferences,
+                    wr => wr.ID,
+                    sap => sap.RuleID,
+                    (wr, sap) => sap)
+                .Where(sap => sap.ProjectID == projectID && sap.Enabled)
+                .Join(
+                    context.SystemActions,
+                    sap => sap.ActionID,
+                    sa => sa.ID,
+                    (sap, sa) => sa)
+                .ToListAsync();
+        }
     }
 
-    public static async Task<List<IssuedAction>> Propagate(UserAction userAction)
+    private static Trigger GetTriggerFromActionType(ActionType actionType, DomainEntityType? entityType, DomainEntityType? relatedEntityType)
+    {
+        switch (actionType)
+        {
+            case ActionType.AssignUser:
+                return relatedEntityType switch
+                {
+                    DomainEntityType.Project => Trigger.UserAssignedToProject,
+                    DomainEntityType.Task => Trigger.UserAssignedToTask,
+                    _ => throw new UnexpectedEntityTypeException(),
+                };
+            
+            case ActionType.ChangeUserRole:
+                return Trigger.UserAssignmentRoleChanged;
+
+            case ActionType.CreateEntity:
+                return entityType switch
+                {
+                    DomainEntityType.Task => Trigger.TaskCreated,
+                    DomainEntityType.Tag => Trigger.TagCreated,
+                    _ => throw new UnexpectedEntityTypeException(),
+                };
+            
+            case ActionType.DeleteEntity:
+                return entityType switch
+                {
+                    DomainEntityType.Project => Trigger.ProjectDeleted,
+                    DomainEntityType.Task => Trigger.TaskDeleted,
+                    DomainEntityType.Tag => Trigger.TagDeleted,
+                    _ => throw new UnexpectedEntityTypeException(),
+                };
+            
+            case ActionType.UnassignUser:
+                return relatedEntityType switch
+                {
+                    DomainEntityType.Project => Trigger.UserUnassignedFromProject,
+                    DomainEntityType.Task => Trigger.UserUnassignedFromTask,
+                    _ => throw new UnexpectedEntityTypeException(),
+                };
+            
+            case ActionType.UploadProject:
+                return Trigger.ProjectUploaded;
+            
+            default:
+                throw new UnexpectedActionTypeException();
+        }
+    }
+
+    private static List<Trigger> GetTriggersFromAttributeChange(DomainEntityType entityType, LocalChange localChange)
+    {
+        List<Trigger> triggers = [];
+
+        switch (entityType)
+        {
+            case DomainEntityType.Tag:
+                return [Trigger.TagNameChanged];
+            
+            case DomainEntityType.Task:
+                if (localChange.Name is not null)
+                {
+                    triggers.Add(Trigger.TaskNameChanged);
+                }
+
+                if (localChange.Description is not null)
+                {
+                    triggers.Add(Trigger.TaskDescriptionChanged);
+                }
+
+                if (localChange.Status is not null)
+                {
+                    triggers.Add(Trigger.TaskStatusChanged);
+                }
+
+                if (localChange.Priority is not null)
+                {
+                    triggers.Add(Trigger.TaskPriorityChanged);
+                }
+
+                if (localChange.DueDateChanged)
+                {
+                    triggers.Add(Trigger.TaskDueDateChanged);
+                }
+
+                return triggers;
+            
+            case DomainEntityType.Project:
+                if (localChange.Name is not null)
+                {
+                    triggers.Add(Trigger.ProjectNameChanged);
+                }
+
+                if (localChange.Description is not null)
+                {
+                    triggers.Add(Trigger.ProjectDescriptionChanged);
+                }
+
+                if (localChange.Status is not null)
+                {
+                    triggers.Add(Trigger.ProjectStatusChanged);
+                }
+
+                return triggers;
+            
+            default:
+                throw new UnexpectedEntityTypeException();
+        }
+    }
+
+    public static async Task<List<IssuedAction>> GenerateIssuedActionSet(UserAction userAction)
     {
         // returns the list of issued actions that are generated by propagating userAction
         return [];
     }
 
-    public static async Task<bool> ValidateActionSet(List<IssuedAction> issuedActions)
+    public static async Task<bool> ValidateIssuedActionSet(List<IssuedAction> issuedActions)
     {
         // validates the set of issued actions against the user's local DB
         return true;
