@@ -3,7 +3,6 @@ using Infrastructure.Database;
 using Infrastructure.Entities;
 using Infrastructure.Enums;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
 using Services.Exceptions;
 using Workflow.Entities;
 using Workflow.Enums;
@@ -135,6 +134,7 @@ static public class WorkflowEngine
 
             new(6, 1, projectID),
             new(6, 2, projectID),
+            new(6, 4, projectID),
             new(6, 5, projectID),
             new(6, 7, projectID),
 
@@ -323,8 +323,6 @@ static public class WorkflowEngine
         }
     }
 
-    // methods that evaluate State
-
     public static async Task<List<SystemAction>> Propagate(int projectID, Trigger trigger, State state)
     {
         using (var context = AppDbContextFactory.CreateContext())
@@ -454,10 +452,268 @@ static public class WorkflowEngine
         }
     }
 
+    private static async Task<bool> EvaluateNoUsersAssignedToInProgressTask(int taskID)
+    {
+        var assignedUsers = await DomainService.GetUsersAssignedToTask(taskID);
+
+        if (assignedUsers.Count > 1)
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+    private static async Task<bool> EvaluateUsersAssignedToCompletedTask(int taskID)
+    {
+        var assignedUsers = await DomainService.GetUsersAssignedToTask(taskID);
+
+        if (assignedUsers.Count > 0)
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+    private static async Task<bool> EvaluateNoTasksInProgress(int projectID)
+    {
+        var tasks = (await DomainService.GetTasksByProject(projectID))
+                        .Where(t => t.Status == TaskItemStatus.InProgress).ToList();
+
+        if (tasks.Count > 1)
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+    private static async Task<bool> EvaluateTasksInProgress(int projectID)
+    {
+        var tasks = (await DomainService.GetTasksByProject(projectID))
+                        .Where(t => t.Status == TaskItemStatus.InProgress).ToList();
+
+        if (tasks.Count > 0)
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+    private static async Task<List<State>> GetStatesFromTaskStatusChange(int targetID, string? localChangeJSON)
+    {
+        var task = await DomainService.GetTaskByID(targetID);
+        List<State> states = [];
+
+        if (localChangeJSON is null)
+        {
+            throw new UnexpectedActionTypeException();
+        }
+
+        var localChange = DomainService.JsonToLocalChange(localChangeJSON);
+
+        if (localChange is null)
+        {
+            throw new NullJsonException();
+        }
+
+        if (task.Status != TaskItemStatus.Todo
+        && localChange.Status == DomainEntityStatus.Todo)
+        {
+            states.Add(State.TaskStatusTodo);
+        }
+
+        if (task.Status != TaskItemStatus.InProgress
+        && localChange.Status == DomainEntityStatus.InProgress)
+        {
+            if (await EvaluateTasksInProgress(task.ProjectID))
+            {
+                states.Add(State.TasksInProgress);
+            }
+
+            states.Add(State.TaskStatusInProgress);
+        }
+
+        if (task.Status == TaskItemStatus.InProgress
+        && localChange.Status != DomainEntityStatus.InProgress
+        && await EvaluateNoTasksInProgress(task.ProjectID))
+        {
+            states.Add(State.NoTasksInProgress);
+        }
+
+        if (task.Status != TaskItemStatus.OnHold
+        && localChange.Status == DomainEntityStatus.OnHold)
+        {
+            states.Add(State.TaskStatusBlocked);
+        }
+
+        if (task.Status != TaskItemStatus.Blocked
+        && localChange.Status == DomainEntityStatus.Blocked)
+        {
+            states.Add(State.TaskStatusBlocked);
+        }
+
+        if (task.Status != TaskItemStatus.Completed
+        && localChange.Status == DomainEntityStatus.Completed)
+        {
+            if (await EvaluateUsersAssignedToCompletedTask(task.ProjectID))
+            {
+                states.Add(State.UsersAssignedToCompletedTask);
+            }
+
+            states.Add(State.TaskStatusInProgress);
+        }
+
+        return states;
+    }
+
+    private static async Task<List<State>> GetStatesFromProjectStatusChange(int targetID, string? localChangeJSON)
+    {
+        var project = await DomainService.GetProjectByID(targetID);
+        List<State> states = [];
+
+        if (localChangeJSON is null)
+        {
+            throw new UnexpectedActionTypeException();
+        }
+
+        var localChange = DomainService.JsonToLocalChange(localChangeJSON);
+
+        if (localChange is null)
+        {
+            throw new NullJsonException();
+        }
+
+        if (project.Status != ProjectStatus.Active
+        && localChange.Status == DomainEntityStatus.Active)
+        {
+            states.Add(State.ProjectStatusActive);
+        }
+
+        if (project.Status != ProjectStatus.OnHold
+        && localChange.Status == DomainEntityStatus.OnHold)
+        {
+            states.Add(State.ProjectStatusOnHold);
+        }
+
+        if (project.Status != ProjectStatus.Archived
+        && localChange.Status == DomainEntityStatus.Archived)
+        {
+            states.Add(State.ProjectStatusArchived);
+        }
+
+        if (project.Status != ProjectStatus.Completed
+        && localChange.Status == DomainEntityStatus.Completed)
+        {
+            states.Add(State.ProjectStatusCompleted);
+        }
+
+        return states;
+    }
+
+    private static async Task<List<State>> GetStatesFromTriggerAndAction(Trigger trigger, int targetID, int? relatedEntityID, string? localChangeJSON)
+    {
+        List<State> states = [];
+
+        switch (trigger)
+        {
+            case Trigger.UserUnassignedFromTask:
+                if (relatedEntityID is null)
+                {
+                    throw new UnexpectedEntityTypeException();
+                }
+
+                if (await EvaluateNoUsersAssignedToInProgressTask(relatedEntityID.Value))
+                {
+                    states.Add(State.NoUsersAssignedToInProgressTask);
+                }
+
+                break;
+            
+            case Trigger.UserStatusChanged:
+                var user = await UserService.GetUser(targetID);
+
+                if (user.IsActive)
+                {
+                    states.Add(State.UserStatusInactive);
+                }
+
+                break;
+            
+            case Trigger.TaskCreated:
+                var task = await DomainService.GetTaskByID(targetID);
+
+                if (await EvaluateTasksInProgress(task.ProjectID))
+                {
+                    states.Add(State.TasksInProgress);
+                }
+
+                break;
+            
+            case Trigger.TaskDeleted:
+                task = await DomainService.GetTaskByID(targetID);
+
+                if (await EvaluateNoTasksInProgress(task.ProjectID))
+                {
+                    states.Add(State.NoTasksInProgress);
+                }
+
+                break;
+            
+            case Trigger.TaskStatusChanged:
+                states = await GetStatesFromTaskStatusChange(targetID, localChangeJSON);
+                break;
+            
+            case Trigger.ProjectStatusChanged:
+                states = await GetStatesFromProjectStatusChange(targetID, localChangeJSON);
+                break;
+        }
+
+        return states;
+    }
+
     public static async Task<List<IssuedAction>> GenerateIssuedActionSet(UserAction userAction)
     {
-        // returns the list of issued actions that are generated by propagating userAction
-        return [];
+        List<IssuedAction> issuedActions = [];
+        List<Trigger> triggers = [];
+        LocalChange? localChange;
+
+        if (userAction.ActionType == ActionType.ChangeAttribute)
+        {
+            if (userAction.LocalChangeJSON is null)
+            {
+                throw new UnexpectedActionTypeException();
+            }
+
+            localChange = DomainService.JsonToLocalChange(userAction.LocalChangeJSON);
+
+            if (localChange is null)
+            {
+                throw new NullJsonException();
+            }
+
+            triggers.AddRange(GetTriggersFromAttributeChange(userAction.TargetType, localChange));
+        }
+
+        else
+        {
+            triggers.Add(GetTriggerFromActionType(userAction.ActionType, userAction.TargetType, userAction.RelatedEntityType));
+        }
+
+        List<SystemAction> systemActions = [];
+
+        foreach (var trigger in triggers)
+        {
+            List<State> states = await GetStatesFromTriggerAndAction(trigger, userAction.TargetID, userAction.RelatedEntityID, userAction.LocalChangeJSON);
+            
+            // call Propagate(trigger, state) for each state to generate system actions and add them to the system action list
+            // convert the new system actions to triggers and add them to trigger list
+            // for each action in each pair, generate correspondent issued actions and add to issuedActions
+        }
+
+        return issuedActions;
     }
 
     public static async Task<bool> ValidateIssuedActionSet(List<IssuedAction> issuedActions)
