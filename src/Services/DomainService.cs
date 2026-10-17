@@ -1,3 +1,5 @@
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using Domain.Entities;
 using Domain.Enums;
 using Infrastructure.Database;
@@ -10,6 +12,16 @@ namespace Services;
 
 public static class DomainService
 {
+    static readonly JsonSerializerOptions JsonOptions = new()
+    {
+        Converters =
+        {
+            new JsonStringEnumConverter(
+                namingPolicy: null,
+                allowIntegerValues: false)
+        }
+    };
+    
     public static async Task<bool> IsUserAssignedToProject(int userID, int projectID)
     {
         using (var context = AppDbContextFactory.CreateContext())
@@ -630,5 +642,15 @@ public static class DomainService
             context.Tags.Remove(tag);
             await context.SaveChangesAsync();
         }
+    }
+
+    public static string LocalChangeToJson(LocalChange localChange)
+    {
+        return JsonSerializer.Serialize(localChange, JsonOptions);
+    }
+
+    public static LocalChange? JsonToLocalChange(string localChangeJSON)
+    {
+        return JsonSerializer.Deserialize<LocalChange>(localChangeJSON, JsonOptions);
     }
 }

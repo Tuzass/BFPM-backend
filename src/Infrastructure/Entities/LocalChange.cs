@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using Domain.Enums;
 using Infrastructure.Enums;
 
@@ -19,6 +20,7 @@ public class LocalChange
         
     }
 
+    [JsonConstructor]
     public LocalChange(DomainEntityType targetType, int targetID, string? name, string? description, DomainEntityStatus? status, TaskItemPriority? priority, DateTime? dueDate, bool dueDateChanged)
     {
         TargetType = targetType;
