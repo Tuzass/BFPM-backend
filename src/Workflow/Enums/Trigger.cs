@@ -3,8 +3,6 @@ namespace Workflow.Enums;
 public enum Trigger
 {
     UserAction,
-    UserCreated,
-    UserStatusChanged,
     UserAssignedToProject,
     UserUnassignedFromProject,
     UserAssignmentRoleChanged,
