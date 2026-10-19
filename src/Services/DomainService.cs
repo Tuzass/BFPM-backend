@@ -420,7 +420,7 @@ public static class DomainService
         }
     }
 
-    public static async Task ApplyLocalChange(LocalChange localChange)
+    public static async Task ApplyChange(Change localChange)
     {
         using (var context = AppDbContextFactory.CreateContext())
         {
@@ -644,13 +644,13 @@ public static class DomainService
         }
     }
 
-    public static string LocalChangeToJson(LocalChange localChange)
+    public static string ChangeToJson(Change localChange)
     {
         return JsonSerializer.Serialize(localChange, JsonOptions);
     }
 
-    public static LocalChange? JsonToLocalChange(string localChangeJSON)
+    public static Change? JsonToChange(string localChangeJSON)
     {
-        return JsonSerializer.Deserialize<LocalChange>(localChangeJSON, JsonOptions);
+        return JsonSerializer.Deserialize<Change>(localChangeJSON, JsonOptions);
     }
 }

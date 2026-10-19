@@ -12,12 +12,12 @@ public class UserAction
     public DomainEntityType? RelatedEntityType {get; private set;}
     public int TargetID {get; private set;}
     public int? RelatedEntityID {get; private set;}
-    public string? LocalChangeJSON {get; private set;} = null!;
+    public Change? Change {get; private set;} = null!;
     public DateTime CreatedAt {get; private set;}
     public DateTime? ProcessedAt {get; private set;}
     public UserActionStatus Status {get; private set;}
 
-    public UserAction(int userID, ActionType actionType, DomainEntityType targetType, DomainEntityType? relatedEntityType, int targetID, int? relatedEntityID, string? localChangeJSON)
+    public UserAction(int userID, ActionType actionType, DomainEntityType targetType, DomainEntityType? relatedEntityType, int targetID, int? relatedEntityID, Change? change)
     {
         UserID = userID;
         ActionType = actionType;
@@ -25,7 +25,7 @@ public class UserAction
         RelatedEntityType = relatedEntityType;
         TargetID = targetID;
         RelatedEntityID = relatedEntityID;
-        LocalChangeJSON = localChangeJSON;
+        Change = change;
         CreatedAt = DateTime.UtcNow;
         ProcessedAt = null;
         Status = UserActionStatus.Processing;

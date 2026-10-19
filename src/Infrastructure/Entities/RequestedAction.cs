@@ -12,13 +12,13 @@ public class RequestedAction
     public DomainEntityType? RelatedEntityType {get; private set;}
     public int TargetID {get; private set;}
     public int? RelatedEntityID {get; private set;}
-    public string? LocalChangeJSON {get; private set;} = null!;
+    public string? ChangeJSON {get; private set;} = null!;
     public DateTime CreatedAt {get; private set;}
     public DateTime? ProcessedAt {get; private set;}
     public string Justification {get; set;} = null!;
     public RequestedActionStatus Status {get; private set;}
 
-    public RequestedAction(int userID, ActionType actionType, DomainEntityType targetType, DomainEntityType? relatedEntityType, int targetID, int? relatedEntityID, string? localChangeJSON, string justification)
+    public RequestedAction(int userID, ActionType actionType, DomainEntityType targetType, DomainEntityType? relatedEntityType, int targetID, int? relatedEntityID, string? changeJSON, string justification)
     {
         UserID = userID;
         ActionType = actionType;
@@ -26,7 +26,7 @@ public class RequestedAction
         RelatedEntityType = relatedEntityType;
         TargetID = targetID;
         RelatedEntityID = relatedEntityID;
-        LocalChangeJSON = localChangeJSON;
+        ChangeJSON = changeJSON;
         CreatedAt = DateTime.UtcNow;
         ProcessedAt = null;
         Justification = justification;

@@ -4,7 +4,7 @@ using Infrastructure.Enums;
 
 namespace Infrastructure.Entities;
 
-public class LocalChange
+public class Change
 {
     public DomainEntityType TargetType {get; private set;}
     public int TargetID {get; private set;}
@@ -14,14 +14,15 @@ public class LocalChange
     public TaskItemPriority? Priority {get; set;}
     public DateTime? DueDate {get; set;}
     public bool DueDateChanged {get; set;}
+    public ProjectRole? Role {get; set;}
 
-    private LocalChange()
+    private Change()
     {
         
     }
 
     [JsonConstructor]
-    public LocalChange(DomainEntityType targetType, int targetID, string? name, string? description, DomainEntityStatus? status, TaskItemPriority? priority, DateTime? dueDate, bool dueDateChanged)
+    public Change(DomainEntityType targetType, int targetID, string? name, string? description, DomainEntityStatus? status, TaskItemPriority? priority, DateTime? dueDate, bool dueDateChanged, ProjectRole? role)
     {
         TargetType = targetType;
         TargetID = targetID;
@@ -31,5 +32,6 @@ public class LocalChange
         Priority = priority;
         DueDate = dueDate;
         DueDateChanged = dueDateChanged;
+        Role = role;
     }
 }

@@ -1,3 +1,4 @@
+using System.Linq;
 using Domain.Enums;
 using Infrastructure.Database;
 using Infrastructure.Entities;
@@ -28,9 +29,7 @@ static public class WorkflowEngine
             new(10, ActionType.ChangeAttribute, ActionTarget.OnHoldProject, State.ProjectStatusActive),
             new(11, ActionType.ChangeAttribute, ActionTarget.ActiveProject, State.ProjectStatusOnHold),
 
-            new(12, ActionType.UnassignUser, ActionTarget.AssignedTasks, State.None),
-            new(13, ActionType.UnassignUser, ActionTarget.AssignedProjects, State.None),
-            new(14, ActionType.UnassignUsers, ActionTarget.UsersAssignedToTask, State.None)
+            new(12, ActionType.UnassignUsers, ActionTarget.UsersAssignedToTask, State.None)
         ];
 
         List<WorkflowRule> workflowRules = [
@@ -236,7 +235,7 @@ static public class WorkflowEngine
             new(30, 1, projectID),
             new(30, 4, projectID),
             new(30, 5, projectID),
-            new(30, 14, projectID),
+            new(30, 12, projectID),
 
             new(31, 1, projectID),
             new(31, 5, projectID),
@@ -344,111 +343,128 @@ static public class WorkflowEngine
         }
     }
 
-    private static Trigger GetTriggerFromActionType(ActionType actionType, DomainEntityType? entityType, DomainEntityType? relatedEntityType)
+    private static List<Trigger> GetTriggersFromActionType(ActionType actionType, DomainEntityType entityType, DomainEntityType? relatedEntityType, Change? change)
     {
+        List<Trigger> triggers = [];
+
         switch (actionType)
         {
+            case ActionType.LogActivity:
+            case ActionType.SendNotification:
+                return triggers;
+
             case ActionType.AssignUser:
-                return relatedEntityType switch
+                triggers.Add(relatedEntityType switch
                 {
                     DomainEntityType.Project => Trigger.UserAssignedToProject,
                     DomainEntityType.Task => Trigger.UserAssignedToTask,
                     _ => throw new UnexpectedEntityTypeException(),
-                };
+                });
+
+                return triggers;
             
             case ActionType.ChangeUserRole:
-                return Trigger.UserAssignmentRoleChanged;
+                triggers.Add(Trigger.UserAssignmentRoleChanged);
+                return triggers;
 
             case ActionType.CreateEntity:
-                return entityType switch
+                triggers.Add(relatedEntityType switch
                 {
                     DomainEntityType.Task => Trigger.TaskCreated,
                     DomainEntityType.Tag => Trigger.TagCreated,
                     _ => throw new UnexpectedEntityTypeException(),
-                };
+                });
+
+                return triggers;
             
             case ActionType.DeleteEntity:
-                return entityType switch
+                triggers.Add(relatedEntityType switch
                 {
                     DomainEntityType.Project => Trigger.ProjectDeleted,
                     DomainEntityType.Task => Trigger.TaskDeleted,
                     DomainEntityType.Tag => Trigger.TagDeleted,
                     _ => throw new UnexpectedEntityTypeException(),
-                };
+                });
+
+                return triggers;
             
             case ActionType.UnassignUser:
-                return relatedEntityType switch
+                triggers.Add(relatedEntityType switch
                 {
                     DomainEntityType.Project => Trigger.UserUnassignedFromProject,
                     DomainEntityType.Task => Trigger.UserUnassignedFromTask,
                     _ => throw new UnexpectedEntityTypeException(),
-                };
+                });
+
+                return triggers;
             
             case ActionType.UploadProject:
-                return Trigger.ProjectUploaded;
+                triggers.Add(Trigger.ProjectUploaded);
+                return triggers;
+            
+            case ActionType.ChangeAttribute:
+                if (change is null)
+                {
+                    throw new NullReferenceException();
+                }
+
+                switch (entityType)
+                {
+                    case DomainEntityType.Tag:
+                        return [Trigger.TagNameChanged];
+                    
+                    case DomainEntityType.Task:
+                        if (change.Name is not null)
+                        {
+                            triggers.Add(Trigger.TaskNameChanged);
+                        }
+
+                        if (change.Description is not null)
+                        {
+                            triggers.Add(Trigger.TaskDescriptionChanged);
+                        }
+
+                        if (change.Status is not null)
+                        {
+                            triggers.Add(Trigger.TaskStatusChanged);
+                        }
+
+                        if (change.Priority is not null)
+                        {
+                            triggers.Add(Trigger.TaskPriorityChanged);
+                        }
+
+                        if (change.DueDateChanged)
+                        {
+                            triggers.Add(Trigger.TaskDueDateChanged);
+                        }
+
+                        return triggers;
+                    
+                    case DomainEntityType.Project:
+                        if (change.Name is not null)
+                        {
+                            triggers.Add(Trigger.ProjectNameChanged);
+                        }
+
+                        if (change.Description is not null)
+                        {
+                            triggers.Add(Trigger.ProjectDescriptionChanged);
+                        }
+
+                        if (change.Status is not null)
+                        {
+                            triggers.Add(Trigger.ProjectStatusChanged);
+                        }
+
+                        return triggers;
+                    
+                    default:
+                        throw new UnexpectedEntityTypeException();
+                }
             
             default:
                 throw new UnexpectedActionTypeException();
-        }
-    }
-
-    private static List<Trigger> GetTriggersFromAttributeChange(DomainEntityType entityType, LocalChange localChange)
-    {
-        List<Trigger> triggers = [];
-
-        switch (entityType)
-        {
-            case DomainEntityType.Tag:
-                return [Trigger.TagNameChanged];
-            
-            case DomainEntityType.Task:
-                if (localChange.Name is not null)
-                {
-                    triggers.Add(Trigger.TaskNameChanged);
-                }
-
-                if (localChange.Description is not null)
-                {
-                    triggers.Add(Trigger.TaskDescriptionChanged);
-                }
-
-                if (localChange.Status is not null)
-                {
-                    triggers.Add(Trigger.TaskStatusChanged);
-                }
-
-                if (localChange.Priority is not null)
-                {
-                    triggers.Add(Trigger.TaskPriorityChanged);
-                }
-
-                if (localChange.DueDateChanged)
-                {
-                    triggers.Add(Trigger.TaskDueDateChanged);
-                }
-
-                return triggers;
-            
-            case DomainEntityType.Project:
-                if (localChange.Name is not null)
-                {
-                    triggers.Add(Trigger.ProjectNameChanged);
-                }
-
-                if (localChange.Description is not null)
-                {
-                    triggers.Add(Trigger.ProjectDescriptionChanged);
-                }
-
-                if (localChange.Status is not null)
-                {
-                    triggers.Add(Trigger.ProjectStatusChanged);
-                }
-
-                return triggers;
-            
-            default:
-                throw new UnexpectedEntityTypeException();
         }
     }
 
@@ -502,31 +518,24 @@ static public class WorkflowEngine
         return true;
     }
 
-    private static async Task<List<State>> GetStatesFromTaskStatusChange(int targetID, string? localChangeJSON)
+    private static async Task<List<State>> GetStatesFromTaskStatusChange(int targetID, Change change)
     {
         var task = await DomainService.GetTaskByID(targetID);
         List<State> states = [];
 
-        if (localChangeJSON is null)
-        {
-            throw new UnexpectedActionTypeException();
-        }
-
-        var localChange = DomainService.JsonToLocalChange(localChangeJSON);
-
-        if (localChange is null)
+        if (change is null)
         {
             throw new NullJsonException();
         }
 
         if (task.Status != TaskItemStatus.Todo
-        && localChange.Status == DomainEntityStatus.Todo)
+        && change.Status == DomainEntityStatus.Todo)
         {
             states.Add(State.TaskStatusTodo);
         }
 
         if (task.Status != TaskItemStatus.InProgress
-        && localChange.Status == DomainEntityStatus.InProgress)
+        && change.Status == DomainEntityStatus.InProgress)
         {
             if (await EvaluateTasksInProgress(task.ProjectID))
             {
@@ -537,26 +546,26 @@ static public class WorkflowEngine
         }
 
         if (task.Status == TaskItemStatus.InProgress
-        && localChange.Status != DomainEntityStatus.InProgress
+        && change.Status != DomainEntityStatus.InProgress
         && await EvaluateNoTasksInProgress(task.ProjectID))
         {
             states.Add(State.NoTasksInProgress);
         }
 
         if (task.Status != TaskItemStatus.OnHold
-        && localChange.Status == DomainEntityStatus.OnHold)
+        && change.Status == DomainEntityStatus.OnHold)
         {
             states.Add(State.TaskStatusBlocked);
         }
 
         if (task.Status != TaskItemStatus.Blocked
-        && localChange.Status == DomainEntityStatus.Blocked)
+        && change.Status == DomainEntityStatus.Blocked)
         {
             states.Add(State.TaskStatusBlocked);
         }
 
         if (task.Status != TaskItemStatus.Completed
-        && localChange.Status == DomainEntityStatus.Completed)
+        && change.Status == DomainEntityStatus.Completed)
         {
             if (await EvaluateUsersAssignedToCompletedTask(task.ProjectID))
             {
@@ -569,43 +578,31 @@ static public class WorkflowEngine
         return states;
     }
 
-    private static async Task<List<State>> GetStatesFromProjectStatusChange(int targetID, string? localChangeJSON)
+    private static async Task<List<State>> GetStatesFromProjectStatusChange(int targetID, Change change)
     {
         var project = await DomainService.GetProjectByID(targetID);
         List<State> states = [];
 
-        if (localChangeJSON is null)
-        {
-            throw new UnexpectedActionTypeException();
-        }
-
-        var localChange = DomainService.JsonToLocalChange(localChangeJSON);
-
-        if (localChange is null)
-        {
-            throw new NullJsonException();
-        }
-
         if (project.Status != ProjectStatus.Active
-        && localChange.Status == DomainEntityStatus.Active)
+        && change.Status == DomainEntityStatus.Active)
         {
             states.Add(State.ProjectStatusActive);
         }
 
         if (project.Status != ProjectStatus.OnHold
-        && localChange.Status == DomainEntityStatus.OnHold)
+        && change.Status == DomainEntityStatus.OnHold)
         {
             states.Add(State.ProjectStatusOnHold);
         }
 
         if (project.Status != ProjectStatus.Archived
-        && localChange.Status == DomainEntityStatus.Archived)
+        && change.Status == DomainEntityStatus.Archived)
         {
             states.Add(State.ProjectStatusArchived);
         }
 
         if (project.Status != ProjectStatus.Completed
-        && localChange.Status == DomainEntityStatus.Completed)
+        && change.Status == DomainEntityStatus.Completed)
         {
             states.Add(State.ProjectStatusCompleted);
         }
@@ -613,7 +610,7 @@ static public class WorkflowEngine
         return states;
     }
 
-    private static async Task<List<State>> GetStatesFromTriggerAndAction(Trigger trigger, int targetID, int? relatedEntityID, string? localChangeJSON)
+    private static async Task<List<State>> GetStatesFromTriggerAndAction(Trigger trigger, int targetID, int? relatedEntityID, Change? change)
     {
         List<State> states = [];
 
@@ -628,16 +625,6 @@ static public class WorkflowEngine
                 if (await EvaluateNoUsersAssignedToInProgressTask(relatedEntityID.Value))
                 {
                     states.Add(State.NoUsersAssignedToInProgressTask);
-                }
-
-                break;
-            
-            case Trigger.UserStatusChanged:
-                var user = await UserService.GetUser(targetID);
-
-                if (user.IsActive)
-                {
-                    states.Add(State.UserStatusInactive);
                 }
 
                 break;
@@ -663,54 +650,189 @@ static public class WorkflowEngine
                 break;
             
             case Trigger.TaskStatusChanged:
-                states = await GetStatesFromTaskStatusChange(targetID, localChangeJSON);
+                if (change is null)
+                {
+                    throw new NullReferenceException();
+                }
+
+                states = await GetStatesFromTaskStatusChange(targetID, change);
                 break;
             
             case Trigger.ProjectStatusChanged:
-                states = await GetStatesFromProjectStatusChange(targetID, localChangeJSON);
+                if (change is null)
+                {
+                    throw new NullReferenceException();
+                }
+
+                states = await GetStatesFromProjectStatusChange(targetID, change);
                 break;
         }
 
         return states;
     }
 
-    public static async Task<List<IssuedAction>> GenerateIssuedActionSet(UserAction userAction)
+    private static async Task<List<IssuedAction>> GenerateIssuedActionsFromSystemAction(Trigger trigger, UserAction userAction, SystemAction systemAction, int projectID)
+    {
+        List<IssuedAction> issuedActions = [];
+
+        switch (systemAction.Type)
+        {
+            case ActionType.ChangeAttribute:
+                switch (systemAction.Target)
+                {
+                    case ActionTarget.RelatedTask:
+                        var status = systemAction.NewState switch
+                        {
+                            State.TaskStatusTodo => DomainEntityStatus.Todo,
+                            State.TaskStatusInProgress => DomainEntityStatus.InProgress,
+                            State.TaskStatusOnHold => DomainEntityStatus.OnHold,
+                            State.TaskStatusBlocked => DomainEntityStatus.InProgress,
+                            State.TaskStatusCompleted => DomainEntityStatus.Completed,
+                            _ => DomainEntityStatus.Todo
+                        };
+
+                        if (userAction.RelatedEntityID is null)
+                        {
+                            throw new NullReferenceException();
+                        }
+
+                        Change change = new(DomainEntityType.Task, userAction.RelatedEntityID.Value, null, null, status, null, null, false, null);
+                        issuedActions.Add(new(trigger,
+                                          systemAction.Type,
+                                          DomainEntityType.Task,
+                                          null,
+                                          userAction.RelatedEntityID.Value,
+                                          null,
+                                          change));
+                        
+                        break;
+                    
+                    case ActionTarget.RelatedTasks:
+                        var tasks = await DomainService.GetTasksByProject(projectID);
+
+                        foreach (var task in tasks)
+                        {
+                            status = systemAction.NewState switch
+                            {
+                                State.TaskStatusTodo => DomainEntityStatus.Todo,
+                                State.TaskStatusInProgress => DomainEntityStatus.InProgress,
+                                State.TaskStatusOnHold => DomainEntityStatus.OnHold,
+                                State.TaskStatusBlocked => DomainEntityStatus.InProgress,
+                                State.TaskStatusCompleted => DomainEntityStatus.Completed,
+                                _ => DomainEntityStatus.Todo
+                            };
+
+                            change = new(DomainEntityType.Task, task.ID, null, null, status, null, null, false, null);
+                            issuedActions.Add(new(trigger,
+                                            systemAction.Type,
+                                            DomainEntityType.Task,
+                                            null,
+                                            task.ID,
+                                            null,
+                                            change));
+                        }
+                        
+                        break;
+                    
+                    case ActionTarget.InProgressTasks:
+                        tasks = await DomainService.GetTasksByProject(projectID);
+                        tasks = tasks.Where(t => t.Status == TaskItemStatus.InProgress).ToList();
+
+                        foreach (var task in tasks)
+                        {
+                            status = systemAction.NewState switch
+                            {
+                                State.TaskStatusTodo => DomainEntityStatus.Todo,
+                                State.TaskStatusInProgress => DomainEntityStatus.InProgress,
+                                State.TaskStatusOnHold => DomainEntityStatus.OnHold,
+                                State.TaskStatusBlocked => DomainEntityStatus.InProgress,
+                                State.TaskStatusCompleted => DomainEntityStatus.Completed,
+                                _ => DomainEntityStatus.Todo
+                            };
+
+                            change = new(DomainEntityType.Task, task.ID, null, null, status, null, null, false, null);
+                            issuedActions.Add(new(trigger,
+                                            systemAction.Type,
+                                            DomainEntityType.Task,
+                                            null,
+                                            task.ID,
+                                            null,
+                                            change));
+                        }
+                        
+                        break;
+                    
+                    default:
+                        throw new UnexpectedActionTargetException();
+                }
+
+                break;
+
+            case ActionType.UnassignUsers:
+                var users = await DomainService.GetUsersAssignedToTask(userAction.TargetID);
+
+                foreach (var user in users)
+                {
+                    issuedActions.Add(new(trigger,
+                                          systemAction.Type,
+                                          DomainEntityType.Task,
+                                          DomainEntityType.User,
+                                          userAction.TargetID,
+                                          user.ID,
+                                          null));
+                }
+
+                break;
+            
+            default:
+                throw new UnexpectedActionTypeException();
+        }
+
+        return issuedActions;
+    }
+
+    public static async Task<List<IssuedAction>> GenerateIssuedActionsFromUserAction(UserAction userAction, int projectID)
     {
         List<IssuedAction> issuedActions = [];
         List<Trigger> triggers = [];
-        LocalChange? localChange;
 
-        if (userAction.ActionType == ActionType.ChangeAttribute)
+        issuedActions.Add(new(Trigger.UserAction,
+                              userAction.ActionType,
+                              userAction.TargetType,
+                              userAction.RelatedEntityType,
+                              userAction.TargetID,
+                              userAction.RelatedEntityID,
+                              userAction.Change));
+
+        triggers.AddRange(GetTriggersFromActionType(userAction.ActionType, userAction.TargetType, userAction.RelatedEntityType, userAction.Change));
+
+        int i = 0;
+        while (true)
         {
-            if (userAction.LocalChangeJSON is null)
-            {
-                throw new UnexpectedActionTypeException();
-            }
-
-            localChange = DomainService.JsonToLocalChange(userAction.LocalChangeJSON);
-
-            if (localChange is null)
-            {
-                throw new NullJsonException();
-            }
-
-            triggers.AddRange(GetTriggersFromAttributeChange(userAction.TargetType, localChange));
-        }
-
-        else
-        {
-            triggers.Add(GetTriggerFromActionType(userAction.ActionType, userAction.TargetType, userAction.RelatedEntityType));
-        }
-
-        List<SystemAction> systemActions = [];
-
-        foreach (var trigger in triggers)
-        {
-            List<State> states = await GetStatesFromTriggerAndAction(trigger, userAction.TargetID, userAction.RelatedEntityID, userAction.LocalChangeJSON);
+            var trigger = triggers[i];
+            var states = await GetStatesFromTriggerAndAction(trigger, userAction.TargetID, userAction.RelatedEntityID, userAction.Change);
             
-            // call Propagate(trigger, state) for each state to generate system actions and add them to the system action list
-            // convert the new system actions to triggers and add them to trigger list
-            // for each action in each pair, generate correspondent issued actions and add to issuedActions
+            if (states.Count == 0)
+            {
+                states = [State.None];
+            }
+
+            foreach (var state in states)
+            {
+                var systemActions = await Propagate(projectID, trigger, state);
+
+                foreach (var systemAction in systemActions)
+                {
+                    triggers.AddRange(GetTriggersFromActionType(systemAction.Type, userAction.TargetType, userAction.RelatedEntityType, userAction.Change));
+                    issuedActions.AddRange(await GenerateIssuedActionsFromSystemAction(trigger, userAction, systemAction, projectID));
+                }
+            }
+
+            i++;
+            if (i == triggers.Count)
+            {
+                break;
+            }
         }
 
         return issuedActions;
