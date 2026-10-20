@@ -338,6 +338,24 @@ public static class DomainService
         }
     }
 
+    public static async Task ChangeUserRole(AppDbContext context, int projectID, int userID, ProjectRole newRole)
+    {
+        if (newRole == ProjectRole.Owner)
+        {
+            return;
+        }
+
+        var projectAssignment = await context.ProjectAssignments
+            .SingleOrDefaultAsync(pa => pa.UserID == userID && pa.ProjectID == projectID);
+
+        if (projectAssignment is null)
+        {
+            throw new NullReferenceException();
+        }
+
+        projectAssignment.Role = newRole;
+    }
+
     public static async Task ApplyChange(AppDbContext context, Change localChange)
     {
         switch (localChange.TargetType)
