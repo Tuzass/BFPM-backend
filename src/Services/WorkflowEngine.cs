@@ -964,7 +964,6 @@ static public class WorkflowEngine
                         switch (issuedAction.TargetType)
                         {
                             case DomainEntityType.Task:
-                                // TODO: change Create methods to accept Change instead
                                 if (issuedAction.Change is null
                                  || issuedAction.RelatedEntityType is null
                                  || issuedAction.RelatedEntityID is null)
@@ -972,30 +971,7 @@ static public class WorkflowEngine
                                     throw new NullReferenceException();
                                 }
 
-                                if (issuedAction.Change.Name is null || issuedAction.Change.Description is null
-                                 || issuedAction.Change.Status is null || issuedAction.Change.Priority is null)
-                                {
-                                    throw new MissingInformationException();
-                                }
-
-                                var status = issuedAction.Change.Status switch
-                                {
-                                    DomainEntityStatus.Todo => TaskItemStatus.Todo,
-                                    DomainEntityStatus.InProgress => TaskItemStatus.InProgress,
-                                    DomainEntityStatus.OnHold => TaskItemStatus.OnHold,
-                                    DomainEntityStatus.Blocked => TaskItemStatus.Blocked,
-                                    DomainEntityStatus.Completed => TaskItemStatus.Completed,
-                                    _ => TaskItemStatus.Todo
-                                };
-
-                                await DomainService.CreateTask(context,
-                                                               issuedAction.RelatedEntityID.Value,
-                                                               issuedAction.Change.Name,
-                                                               issuedAction.Change.Description,
-                                                               status,
-                                                               issuedAction.Change.Priority.Value,
-                                                               issuedAction.Change.DueDate);
-                                
+                                await DomainService.CreateTask(context, issuedAction.RelatedEntityID.Value, issuedAction.Change);
                                 break;
                             
                             case DomainEntityType.Tag:
@@ -1006,12 +982,7 @@ static public class WorkflowEngine
                                     throw new NullReferenceException();
                                 }
 
-                                if (issuedAction.Change.Name is null)
-                                {
-                                    throw new MissingInformationException();
-                                }
-
-                                await DomainService.CreateTag(context, issuedAction.RelatedEntityID.Value, issuedAction.Change.Name);
+                                await DomainService.CreateTag(context, issuedAction.RelatedEntityID.Value, issuedAction.Change);
                                 break;
                             
                             default:

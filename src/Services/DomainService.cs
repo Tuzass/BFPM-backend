@@ -274,31 +274,51 @@ public static class DomainService
         return project.ID;
     }
 
-    public static async Task CreateTask(AppDbContext context, int projectID, string taskName, string taskDescription, TaskItemStatus taskStatus, TaskItemPriority taskPriority, DateTime? taskDueDate)
+    public static async Task CreateTask(AppDbContext context, int projectID, Change change)
     {
+        if (change.Name is null || change.Description is null || change.Status is null || change.Priority is null || change.DueDate is null)
+        {
+            throw new NullReferenceException();
+        }
+
         bool isDuplicate = await context.Tasks
-            .AnyAsync(t => t.ProjectID == projectID && t.Name == taskName);
+            .AnyAsync(t => t.ProjectID == projectID && t.Name == change.Name);
         
         if (isDuplicate)
         {
             throw new DuplicateTaskException();
         }
 
-        TaskItem newTask = new(projectID, taskName, taskDescription, taskStatus, taskPriority, taskDueDate, null, null);
+        var status = change.Status switch
+        {
+            DomainEntityStatus.Todo => TaskItemStatus.Todo,
+            DomainEntityStatus.InProgress => TaskItemStatus.InProgress,
+            DomainEntityStatus.OnHold => TaskItemStatus.OnHold,
+            DomainEntityStatus.Blocked => TaskItemStatus.Blocked,
+            DomainEntityStatus.Completed => TaskItemStatus.Completed,
+            _ => TaskItemStatus.Todo
+        };
+
+        TaskItem newTask = new(projectID, change.Name, change.Description, status, change.Priority.Value, change.DueDate, null, null);
         context.Tasks.Add(newTask);
     }
 
-    public static async Task CreateTag(AppDbContext context, int projectID, string tagName)
+    public static async Task CreateTag(AppDbContext context, int projectID, Change change)
     {
+        if (change.Name is null)
+        {
+            throw new NullReferenceException();
+        }
+        
         bool isDuplicate = await context.Tags
-            .AnyAsync(t => t.ProjectID == projectID && t.Name == tagName);
+            .AnyAsync(t => t.ProjectID == projectID && t.Name == change.Name);
         
         if (isDuplicate)
         {
             throw new DuplicateTagException();
         }
 
-        Tag newTag = new(projectID, tagName);
+        Tag newTag = new(projectID, change.Name);
         context.Tags.Add(newTag);
     }
 
