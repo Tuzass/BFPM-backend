@@ -10,10 +10,7 @@ public enum ActionTarget
     UsersAssignedToTask,
     RelatedTask,
     RelatedTasks,
-    AssignedTasks,
     InProgressTasks,
-    RelatedProject,
-    AssignedProjects,
     OnHoldProject,
     ActiveProject
 }

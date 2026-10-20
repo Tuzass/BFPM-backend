@@ -4,7 +4,7 @@ using Infrastructure.Entities;
 
 namespace API;
 
-public class Utils
+public static class Utils
 {
     static readonly JsonSerializerOptions JsonOptions = new()
     {

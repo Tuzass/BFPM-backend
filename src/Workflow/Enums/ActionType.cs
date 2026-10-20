@@ -9,7 +9,6 @@ public enum ActionType
     UploadProject,
     ChangeAttribute,
     AssignUser,
-    AssignUsers,
     UnassignUser,
     UnassignUsers,
     ChangeUserRole

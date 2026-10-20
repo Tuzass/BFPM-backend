@@ -1,4 +1,3 @@
-using System.Linq;
 using Domain.Entities;
 using Domain.Enums;
 using Infrastructure.Database;
@@ -11,7 +10,7 @@ using Workflow.Enums;
 
 namespace Services;
 
-static public class WorkflowEngine
+public static class WorkflowEngine
 {
     public static async Task CreateWorkflowRules()
     {
@@ -1013,7 +1012,12 @@ static public class WorkflowEngine
                         break;
                     
                     case ActionType.ChangeAttribute:
-                        // TODO
+                        if (issuedAction.Change is null)
+                        {
+                            throw new NullReferenceException();
+                        }
+                        
+                        await DomainService.ApplyChange(context, issuedAction.Change);
                         break;
                     
                     case ActionType.ChangeUserRole:
