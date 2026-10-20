@@ -340,11 +340,6 @@ public static class DomainService
 
     public static async Task ChangeUserRole(AppDbContext context, int projectID, int userID, ProjectRole newRole)
     {
-        if (newRole == ProjectRole.Owner)
-        {
-            return;
-        }
-
         var projectAssignment = await context.ProjectAssignments
             .SingleOrDefaultAsync(pa => pa.UserID == userID && pa.ProjectID == projectID);
 
@@ -561,6 +556,68 @@ public static class DomainService
             .SingleAsync();
         
         context.Tags.Remove(tag);
+    }
+
+    public static async Task AssignUserToProject(AppDbContext context, int userID, int projectID, ProjectRole role)
+    {
+        bool alreadyAssigned = await context.ProjectAssignments
+            .AnyAsync(pa => pa.UserID == userID && pa.ProjectID == projectID);
+        
+        if (alreadyAssigned)
+        {
+            return;
+        }
+
+        context.ProjectAssignments.Add(new(userID, projectID, role));
+    }
+
+    public static async Task AssignUserToTask(AppDbContext context, int userID, int taskID)
+    {
+        var task = await context.Tasks.SingleAsync(t => t.ID == taskID);
+
+        bool assignedToProject = await context.ProjectAssignments
+            .AnyAsync(pa => pa.UserID == userID && pa.ProjectID == task.ProjectID);
+        
+        if (!assignedToProject)
+        {
+            throw new UserNotAssignedToProjectException();
+        }
+        
+        bool alreadyAssigned = await context.TaskAssignments
+            .AnyAsync(pa => pa.UserID == userID && pa.TaskID == taskID);
+        
+        if (alreadyAssigned)
+        {
+            return;
+        }
+
+        context.TaskAssignments.Add(new(userID, taskID));
+    }
+
+    public static async Task UnassignUserFromProject(AppDbContext context, int userID, int projectID)
+    {
+        var assignment = await context.ProjectAssignments
+            .SingleOrDefaultAsync(pa => pa.UserID == userID && pa.ProjectID == projectID);
+        
+        if (assignment is null)
+        {
+            return;
+        }
+
+        context.ProjectAssignments.Remove(assignment);
+    }
+
+    public static async Task UnassignUserFromTask(AppDbContext context, int userID, int taskID)
+    {
+        var assignment = await context.TaskAssignments
+            .SingleOrDefaultAsync(pa => pa.UserID == userID && pa.TaskID == taskID);
+        
+        if (assignment is null)
+        {
+            return;
+        }
+
+        context.TaskAssignments.Remove(assignment);
     }
 
     public static string ChangeToJson(Change localChange)

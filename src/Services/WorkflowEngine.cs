@@ -1055,11 +1055,57 @@ static public class WorkflowEngine
                         break;
                     
                     case ActionType.AssignUser:
-                        // TODO
+                        switch (issuedAction.RelatedEntityType)
+                        {
+                            case DomainEntityType.Project:
+                                if (issuedAction.Change is null || issuedAction.Change.Role is null || issuedAction.RelatedEntityID is null)
+                                {
+                                    throw new NullReferenceException();
+                                }
+
+                                await DomainService.AssignUserToProject(context, issuedAction.TargetID, issuedAction.RelatedEntityID.Value, issuedAction.Change.Role.Value);
+                                break;
+                            
+                            case DomainEntityType.Task:
+                                if (issuedAction.RelatedEntityID is null)
+                                {
+                                    throw new NullReferenceException();
+                                }
+
+                                await DomainService.AssignUserToTask(context, issuedAction.TargetID, issuedAction.RelatedEntityID.Value);
+                                break;
+                            
+                            default:
+                                throw new UnexpectedEntityTypeException();
+                        }
+
                         break;
                         
                     case ActionType.UnassignUser:
-                        // TODO
+                        switch (issuedAction.RelatedEntityType)
+                        {
+                            case DomainEntityType.Project:
+                                if (issuedAction.RelatedEntityID is null)
+                                {
+                                    throw new NullReferenceException();
+                                }
+
+                                await DomainService.UnassignUserFromProject(context, issuedAction.TargetID, issuedAction.RelatedEntityID.Value);
+                                break;
+                            
+                            case DomainEntityType.Task:
+                                if (issuedAction.RelatedEntityID is null)
+                                {
+                                    throw new NullReferenceException();
+                                }
+
+                                await DomainService.UnassignUserFromTask(context, issuedAction.TargetID, issuedAction.RelatedEntityID.Value);
+                                break;
+                            
+                            default:
+                                throw new UnexpectedEntityTypeException();
+                        }
+
                         break;
                 
                     default:
