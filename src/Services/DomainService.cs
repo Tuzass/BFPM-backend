@@ -207,71 +207,67 @@ public static class DomainService
             .ToListAsync();
     }
 
-    public static async Task<int> CreateProject(AppDbContext context, int ownerID, string projectName, string projectDescription, ProjectStatus projectStatus, List<TaskItem> tasks, List<Tag> tags, List<TaskTagLink> taskTagLinks)
+    public static async Task<int> UploadProject(Project project, List<TaskItem> tasks, List<Tag> tags, List<TaskTagLink> taskTagLinks)
     {
-        bool isDuplicate = await context.Projects
-            .AnyAsync(p => p.OwnerID == ownerID && p.Name == projectName);
-        
-        if (isDuplicate)
+        using (var context = AppDbContextFactory.CreateContext())
         {
-            throw new DuplicateProjectException();
-        }
-
-        Project project = new(ownerID, projectName, projectDescription, projectStatus, null, null, null);
-
-        if (project.ID == 0)
-        {
-            throw new NullReferenceException();
-        }
-
-        await context.SaveChangesAsync();
-
-        List<TaskItem> newTasks = [];
-        Dictionary<int, TaskItem> newTasksByOldID = [];
-
-        foreach (var t in tasks)
-        {
-            TaskItem newTask = new(project.ID, t.Name, t.Description, t.Status, t.Priority, t.DueDate, null, null);
-
-            if (t.Status == TaskItemStatus.Completed)
+            bool isDuplicate = await context.Projects
+                .AnyAsync(p => p.OwnerID == project.OwnerID && p.Name == project.Name);
+            
+            if (isDuplicate)
             {
-                newTask.Complete();
+                throw new DuplicateProjectException();
             }
 
-            newTasks.Add(newTask);
-            newTasksByOldID.Add(t.ID, newTask);
+            await context.SaveChangesAsync();
+
+            List<TaskItem> newTasks = [];
+            Dictionary<int, TaskItem> newTasksByOldID = [];
+
+            foreach (var t in tasks)
+            {
+                TaskItem newTask = new(project.ID, t.Name, t.Description, t.Status, t.Priority, t.DueDate, null, null);
+
+                if (t.Status == TaskItemStatus.Completed)
+                {
+                    newTask.Complete();
+                }
+
+                newTasks.Add(newTask);
+                newTasksByOldID.Add(t.ID, newTask);
+            }
+
+            List<Tag> newTags = [];
+            Dictionary<int, Tag> newTagsByOldID = [];
+
+            foreach (var t in tags)
+            {
+
+                Tag newTag = new(project.ID, t.Name);
+                newTags.Add(newTag);
+                newTagsByOldID.Add(t.ID, newTag);
+            }
+
+            context.Tasks.AddRange(newTasks);
+            context.Tags.AddRange(newTags);
+            await context.SaveChangesAsync();
+
+            List<TaskTagLink> newLinks = [];
+            
+            foreach (var link in taskTagLinks)
+            {
+                int newTaskID = newTasksByOldID[link.TaskID].ID;
+                int newTagID = newTagsByOldID[link.TagID].ID;
+
+                newLinks.Add(new(newTaskID, newTagID));
+            }
+
+            context.TaskTagLinks.AddRange(newLinks);
+            await context.SaveChangesAsync();
+
+            await WorkflowEngine.CreateSystemActionPreferences(project.ID);
+            return project.ID;
         }
-
-        List<Tag> newTags = [];
-        Dictionary<int, Tag> newTagsByOldID = [];
-
-        foreach (var t in tags)
-        {
-
-            Tag newTag = new(project.ID, t.Name);
-            newTags.Add(newTag);
-            newTagsByOldID.Add(t.ID, newTag);
-        }
-
-        context.Tasks.AddRange(newTasks);
-        context.Tags.AddRange(newTags);
-        await context.SaveChangesAsync();
-
-        List<TaskTagLink> newLinks = [];
-        
-        foreach (var link in taskTagLinks)
-        {
-            int newTaskID = newTasksByOldID[link.TaskID].ID;
-            int newTagID = newTagsByOldID[link.TagID].ID;
-
-            newLinks.Add(new(newTaskID, newTagID));
-        }
-
-        context.TaskTagLinks.AddRange(newLinks);
-        await context.SaveChangesAsync();
-
-        await WorkflowEngine.CreateSystemActionPreferences(project.ID);
-        return project.ID;
     }
 
     public static async Task CreateTask(AppDbContext context, int projectID, Change change)
