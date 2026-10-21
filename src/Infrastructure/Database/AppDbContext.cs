@@ -107,12 +107,18 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             .WithMany()
             .HasForeignKey(n => n.RecipientID)
             .OnDelete(DeleteBehavior.Cascade);
+        
+        modelBuilder.Entity<IssuedAction>()
+            .ComplexProperty(a => a.Change, change => change.ToJson());
 
         modelBuilder.Entity<UserAction>()
             .HasOne<User>()
             .WithMany()
             .HasForeignKey(ua => ua.UserID)
             .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<UserAction>()
+            .ComplexProperty(a => a.Change, change => change.ToJson());
         
         modelBuilder.Entity<RequestedAction>()
             .HasOne<User>()
@@ -186,7 +192,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             .OnDelete(DeleteBehavior.Cascade);
         
         modelBuilder.Entity<TaskAssignment>()
-            .HasOne<Task>()
+            .HasOne<TaskItem>()
             .WithMany()
             .HasForeignKey(pa => pa.TaskID)
             .OnDelete(DeleteBehavior.Cascade);
