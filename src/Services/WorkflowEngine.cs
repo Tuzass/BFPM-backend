@@ -12,7 +12,7 @@ namespace Services;
 
 public static class WorkflowEngine
 {
-    public static async Task CreateWorkflowRules()
+    public static async Task CreateWorkflowRules(AppDbContext context)
     {
         List<SystemAction> systemActions = [
             new(1, ActionType.LogActivity, ActionTarget.None, State.None),
@@ -87,23 +87,19 @@ public static class WorkflowEngine
             new(38, Trigger.ProjectStatusChanged, State.ProjectStatusCompleted)
         ];
 
-        using (var context = AppDbContextFactory.CreateContext())
+        var currentActions = await context.SystemActions.ToListAsync();
+        var currentRules = await context.WorkflowRules.ToListAsync();
+
+        if (currentActions.Count > 0 || currentRules.Count > 0)
         {
-            var currentActions = await context.SystemActions.ToListAsync();
-            var currentRules = await context.WorkflowRules.ToListAsync();
-
-            if (currentActions.Count > 0 || currentActions.Count > 0)
-            {
-                return;
-            }
-
-            context.SystemActions.AddRange(systemActions);
-            context.WorkflowRules.AddRange(workflowRules);
-            await context.SaveChangesAsync();
+            return;
         }
+
+        context.SystemActions.AddRange(systemActions);
+        context.WorkflowRules.AddRange(workflowRules);
     }
 
-    public static async Task CreateSystemActionPreferences(int projectID)
+    public static async Task CreateSystemActionPreferences(AppDbContext context, int projectID)
     {
         List<SystemActionPreference> systemActionPreferences = [
             new(1, 1, projectID),
@@ -272,75 +268,56 @@ public static class WorkflowEngine
             new(38, 8, projectID)
         ];
 
-        using (var context = AppDbContextFactory.CreateContext())
-        {
-            context.SystemActionPreferences.AddRange(systemActionPreferences);
-            await context.SaveChangesAsync();
-        }
+        context.SystemActionPreferences.AddRange(systemActionPreferences);
     }
 
-    public static async Task<List<WorkflowRule>> GetWorkflowRules()
+    public static async Task<List<WorkflowRule>> GetWorkflowRules(AppDbContext context)
     {
-        using (var context = AppDbContextFactory.CreateContext())
-        {
-            return await context.WorkflowRules.ToListAsync();
-        }
+        return await context.WorkflowRules.ToListAsync();
+
     }
 
-    public static async Task<List<SystemAction>> GetSystemActions()
+    public static async Task<List<SystemAction>> GetSystemActions(AppDbContext context)
     {
-        using (var context = AppDbContextFactory.CreateContext())
-        {
-            return await context.SystemActions.ToListAsync();
-        }
+        return await context.SystemActions.ToListAsync();
     }
 
-    public static async Task<List<SystemActionPreference>> GetSystemActionPreferences(int projectID)
+    public static async Task<List<SystemActionPreference>> GetSystemActionPreferences(AppDbContext context, int projectID)
     {
-        using (var context = AppDbContextFactory.CreateContext())
-        {
-            return await context.SystemActionPreferences
-                .Where(sap => sap.ProjectID == projectID)
-                .ToListAsync();
-        }
+        return await context.SystemActionPreferences
+            .Where(sap => sap.ProjectID == projectID)
+            .ToListAsync();
     }
 
-    public static async Task ChangeSystemActionPreference(int ruleID, int actionID, int projectID)
+    public static async Task ChangeSystemActionPreference(AppDbContext context, int ruleID, int actionID, int projectID)
     {
-        using (var context = AppDbContextFactory.CreateContext())
+        var systemActionPreference = await context.SystemActionPreferences
+            .SingleOrDefaultAsync(sap => sap.RuleID == ruleID && sap.ActionID == actionID && sap.ProjectID == projectID);
+        
+        if (systemActionPreference is null)
         {
-            var systemActionPreference = await context.SystemActionPreferences
-                .SingleOrDefaultAsync(sap => sap.RuleID == ruleID && sap.ActionID == actionID && sap.ProjectID == projectID);
-            
-            if (systemActionPreference is null)
-            {
-                throw new InexistentSystemActionPreferenceException();
-            }
-            
-            systemActionPreference.Enabled = !systemActionPreference.Enabled;
-            await context.SaveChangesAsync();
+            throw new InexistentSystemActionPreferenceException();
         }
+        
+        systemActionPreference.Enabled = !systemActionPreference.Enabled;
     }
 
-    public static async Task<List<SystemAction>> Propagate(int projectID, Trigger trigger, State state)
+    public static async Task<List<SystemAction>> Propagate(AppDbContext context, int projectID, Trigger trigger, State state)
     {
-        using (var context = AppDbContextFactory.CreateContext())
-        {
-            return await context.WorkflowRules
-                .Where(wr => wr.Trigger == trigger && wr.State == state)
-                .Join(
-                    context.SystemActionPreferences,
-                    wr => wr.ID,
-                    sap => sap.RuleID,
-                    (wr, sap) => sap)
-                .Where(sap => sap.ProjectID == projectID && sap.Enabled)
-                .Join(
-                    context.SystemActions,
-                    sap => sap.ActionID,
-                    sa => sa.ID,
-                    (sap, sa) => sa)
-                .ToListAsync();
-        }
+        return await context.WorkflowRules
+            .Where(wr => wr.Trigger == trigger && wr.State == state)
+            .Join(
+                context.SystemActionPreferences,
+                wr => wr.ID,
+                sap => sap.RuleID,
+                (wr, sap) => sap)
+            .Where(sap => sap.ProjectID == projectID && sap.Enabled)
+            .Join(
+                context.SystemActions,
+                sap => sap.ActionID,
+                sa => sa.ID,
+                (sap, sa) => sa)
+            .ToListAsync();
     }
 
     private static List<Trigger> GetTriggersFromActionType(ActionType actionType, DomainEntityType entityType, DomainEntityType? relatedEntityType, Change? change)
@@ -468,77 +445,62 @@ public static class WorkflowEngine
         }
     }
 
-    private static async Task<bool> EvaluateNoUsersAssignedToInProgressTask(int taskID)
+    private static async Task<bool> EvaluateNoUsersAssignedToInProgressTask(AppDbContext context, int taskID)
     {
-        using (var context = AppDbContextFactory.CreateContext())
+        var assignedUsers = await DomainService.GetUsersAssignedToTask(context, taskID);
+
+        if (assignedUsers.Count > 1)
         {
-            var assignedUsers = await DomainService.GetUsersAssignedToTask(context, taskID);
-
-            if (assignedUsers.Count > 1)
-            {
-                return false;
-            }
-
-            return true;
+            return false;
         }
+
+        return true;
     }
 
-    private static async Task<bool> EvaluateUsersAssignedToCompletedTask(int taskID)
+    private static async Task<bool> EvaluateUsersAssignedToCompletedTask(AppDbContext context, int taskID)
     {
-        using (var context = AppDbContextFactory.CreateContext())
+        var assignedUsers = await DomainService.GetUsersAssignedToTask(context, taskID);
+
+        if (assignedUsers.Count > 0)
         {
-            var assignedUsers = await DomainService.GetUsersAssignedToTask(context, taskID);
-
-            if (assignedUsers.Count > 0)
-            {
-                return false;
-            }
-
-            return true;
+            return false;
         }
+
+        return true;
     }
 
-    private static async Task<bool> EvaluateNoTasksInProgress(int projectID)
+    private static async Task<bool> EvaluateNoTasksInProgress(AppDbContext context, int projectID)
     {
-        using (var context = AppDbContextFactory.CreateContext())
+        var tasks = (await DomainService.GetTasksByProject(context, projectID))
+                        .Where(t => t.Status == TaskItemStatus.InProgress).ToList();
+
+        if (tasks.Count > 1)
         {
-            var tasks = (await DomainService.GetTasksByProject(context, projectID))
-                            .Where(t => t.Status == TaskItemStatus.InProgress).ToList();
-
-            if (tasks.Count > 1)
-            {
-                return false;
-            }
-
-            return true;
+            return false;
         }
+
+        return true;
     }
 
-    private static async Task<bool> EvaluateTasksInProgress(int projectID)
+    private static async Task<bool> EvaluateTasksInProgress(AppDbContext context, int projectID)
     {
-        using (var context = AppDbContextFactory.CreateContext())
+        var tasks = (await DomainService.GetTasksByProject(context, projectID))
+                        .Where(t => t.Status == TaskItemStatus.InProgress).ToList();
+
+        if (tasks.Count > 0)
         {
-            var tasks = (await DomainService.GetTasksByProject(context, projectID))
-                            .Where(t => t.Status == TaskItemStatus.InProgress).ToList();
-
-            if (tasks.Count > 0)
-            {
-                return false;
-            }
-
-            return true;
+            return false;
         }
+
+        return true;
     }
 
-    private static async Task<List<State>> GetStatesFromTaskStatusChange(int targetID, Change change)
+    private static async Task<List<State>> GetStatesFromTaskStatusChange(AppDbContext context, int targetID, Change change)
     {
         TaskItem task;
         List<State> states = [];
 
-        using (var context = AppDbContextFactory.CreateContext())
-        {
-            task = await DomainService.GetTaskByID(context, targetID);
-        }
+        task = await DomainService.GetTaskByID(context, targetID);
 
         if (change is null)
         {
@@ -554,7 +516,7 @@ public static class WorkflowEngine
         if (task.Status != TaskItemStatus.InProgress
         && change.Status == DomainEntityStatus.InProgress)
         {
-            if (await EvaluateTasksInProgress(task.ProjectID))
+            if (await EvaluateTasksInProgress(context, task.ProjectID))
             {
                 states.Add(State.TasksInProgress);
             }
@@ -564,7 +526,7 @@ public static class WorkflowEngine
 
         if (task.Status == TaskItemStatus.InProgress
         && change.Status != DomainEntityStatus.InProgress
-        && await EvaluateNoTasksInProgress(task.ProjectID))
+        && await EvaluateNoTasksInProgress(context, task.ProjectID))
         {
             states.Add(State.NoTasksInProgress);
         }
@@ -584,7 +546,7 @@ public static class WorkflowEngine
         if (task.Status != TaskItemStatus.Completed
         && change.Status == DomainEntityStatus.Completed)
         {
-            if (await EvaluateUsersAssignedToCompletedTask(task.ProjectID))
+            if (await EvaluateUsersAssignedToCompletedTask(context, task.ProjectID))
             {
                 states.Add(State.UsersAssignedToCompletedTask);
             }
@@ -595,118 +557,141 @@ public static class WorkflowEngine
         return states;
     }
 
-    private static async Task<List<State>> GetStatesFromProjectStatusChange(int targetID, Change change)
+    private static async Task<List<State>> GetStatesFromProjectStatusChange(AppDbContext context, int targetID, Change change)
     {
-        using (var context = AppDbContextFactory.CreateContext())
-        {   
-            var project = await DomainService.GetProjectByID(context, targetID);
-            List<State> states = [];
+        var project = await DomainService.GetProjectByID(context, targetID);
+        List<State> states = [];
 
-            if (project.Status != ProjectStatus.Active
-            && change.Status == DomainEntityStatus.Active)
-            {
-                states.Add(State.ProjectStatusActive);
-            }
-
-            if (project.Status != ProjectStatus.OnHold
-            && change.Status == DomainEntityStatus.OnHold)
-            {
-                states.Add(State.ProjectStatusOnHold);
-            }
-
-            if (project.Status != ProjectStatus.Archived
-            && change.Status == DomainEntityStatus.Archived)
-            {
-                states.Add(State.ProjectStatusArchived);
-            }
-
-            if (project.Status != ProjectStatus.Completed
-            && change.Status == DomainEntityStatus.Completed)
-            {
-                states.Add(State.ProjectStatusCompleted);
-            }
-
-            return states;
+        if (project.Status != ProjectStatus.Active
+        && change.Status == DomainEntityStatus.Active)
+        {
+            states.Add(State.ProjectStatusActive);
         }
+
+        if (project.Status != ProjectStatus.OnHold
+        && change.Status == DomainEntityStatus.OnHold)
+        {
+            states.Add(State.ProjectStatusOnHold);
+        }
+
+        if (project.Status != ProjectStatus.Archived
+        && change.Status == DomainEntityStatus.Archived)
+        {
+            states.Add(State.ProjectStatusArchived);
+        }
+
+        if (project.Status != ProjectStatus.Completed
+        && change.Status == DomainEntityStatus.Completed)
+        {
+            states.Add(State.ProjectStatusCompleted);
+        }
+
+        return states;
     }
 
-    private static async Task<List<State>> GetStatesFromTriggerAndAction(Trigger trigger, int targetID, int? relatedEntityID, Change? change)
+    private static async Task<List<State>> GetStatesFromTriggerAndAction(AppDbContext context, Trigger trigger, int targetID, int? relatedEntityID, Change? change)
     {
-        using (var context = AppDbContextFactory.CreateContext())
+        List<State> states = [];
+
+        switch (trigger)
         {
-            List<State> states = [];
+            case Trigger.UserUnassignedFromTask:
+                if (relatedEntityID is null)
+                {
+                    throw new UnexpectedEntityTypeException();
+                }
 
-            switch (trigger)
-            {
-                case Trigger.UserUnassignedFromTask:
-                    if (relatedEntityID is null)
-                    {
-                        throw new UnexpectedEntityTypeException();
-                    }
+                if (await EvaluateNoUsersAssignedToInProgressTask(context, relatedEntityID.Value))
+                {
+                    states.Add(State.NoUsersAssignedToInProgressTask);
+                }
 
-                    if (await EvaluateNoUsersAssignedToInProgressTask(relatedEntityID.Value))
-                    {
-                        states.Add(State.NoUsersAssignedToInProgressTask);
-                    }
+                break;
+            
+            case Trigger.TaskCreated:
+                var task = await DomainService.GetTaskByID(context, targetID);
 
-                    break;
-                
-                case Trigger.TaskCreated:
-                    var task = await DomainService.GetTaskByID(context, targetID);
+                if (await EvaluateTasksInProgress(context, task.ProjectID))
+                {
+                    states.Add(State.TasksInProgress);
+                }
 
-                    if (await EvaluateTasksInProgress(task.ProjectID))
-                    {
-                        states.Add(State.TasksInProgress);
-                    }
+                break;
+            
+            case Trigger.TaskDeleted:
+                task = await DomainService.GetTaskByID(context, targetID);
 
-                    break;
-                
-                case Trigger.TaskDeleted:
-                    task = await DomainService.GetTaskByID(context, targetID);
+                if (await EvaluateNoTasksInProgress(context, task.ProjectID))
+                {
+                    states.Add(State.NoTasksInProgress);
+                }
 
-                    if (await EvaluateNoTasksInProgress(task.ProjectID))
-                    {
-                        states.Add(State.NoTasksInProgress);
-                    }
+                break;
+            
+            case Trigger.TaskStatusChanged:
+                if (change is null)
+                {
+                    throw new NullReferenceException();
+                }
 
-                    break;
-                
-                case Trigger.TaskStatusChanged:
-                    if (change is null)
-                    {
-                        throw new NullReferenceException();
-                    }
+                states = await GetStatesFromTaskStatusChange(context, targetID, change);
+                break;
+            
+            case Trigger.ProjectStatusChanged:
+                if (change is null)
+                {
+                    throw new NullReferenceException();
+                }
 
-                    states = await GetStatesFromTaskStatusChange(targetID, change);
-                    break;
-                
-                case Trigger.ProjectStatusChanged:
-                    if (change is null)
-                    {
-                        throw new NullReferenceException();
-                    }
-
-                    states = await GetStatesFromProjectStatusChange(targetID, change);
-                    break;
-            }
-
-            return states;
+                states = await GetStatesFromProjectStatusChange(context, targetID, change);
+                break;
         }
+
+        return states;
     }
 
-    private static async Task<List<IssuedAction>> GenerateIssuedActionsFromSystemAction(Trigger trigger, UserAction userAction, SystemAction systemAction, int projectID)
+    private static async Task<List<IssuedAction>> GenerateIssuedActionsFromSystemAction(AppDbContext context, Trigger trigger, UserAction userAction, SystemAction systemAction, int projectID)
     {
-        using (var context = AppDbContextFactory.CreateContext())
-        {
-            List<IssuedAction> issuedActions = [];
+        List<IssuedAction> issuedActions = [];
 
-            switch (systemAction.Type)
-            {
-                case ActionType.ChangeAttribute:
-                    switch (systemAction.Target)
-                    {
-                        case ActionTarget.RelatedTask:
-                            var status = systemAction.NewState switch
+        switch (systemAction.Type)
+        {
+            case ActionType.ChangeAttribute:
+                switch (systemAction.Target)
+                {
+                    case ActionTarget.RelatedTask:
+                        var status = systemAction.NewState switch
+                        {
+                            State.TaskStatusTodo => DomainEntityStatus.Todo,
+                            State.TaskStatusInProgress => DomainEntityStatus.InProgress,
+                            State.TaskStatusOnHold => DomainEntityStatus.OnHold,
+                            State.TaskStatusBlocked => DomainEntityStatus.InProgress,
+                            State.TaskStatusCompleted => DomainEntityStatus.Completed,
+                            _ => DomainEntityStatus.Todo
+                        };
+
+                        if (userAction.RelatedEntityID is null)
+                        {
+                            throw new NullReferenceException();
+                        }
+
+                        Change change = new(DomainEntityType.Task, userAction.RelatedEntityID.Value, null, null, status, null, null, false, null);
+                        issuedActions.Add(new(trigger,
+                                        systemAction.Type,
+                                        DomainEntityType.Task,
+                                        null,
+                                        userAction.RelatedEntityID.Value,
+                                        null,
+                                        change));
+                        
+                        break;
+                    
+                    case ActionTarget.RelatedTasks:
+                        var tasks = await DomainService.GetTasksByProject(context, projectID);
+
+                        foreach (var task in tasks)
+                        {
+                            status = systemAction.NewState switch
                             {
                                 State.TaskStatusTodo => DomainEntityStatus.Todo,
                                 State.TaskStatusInProgress => DomainEntityStatus.InProgress,
@@ -716,108 +701,76 @@ public static class WorkflowEngine
                                 _ => DomainEntityStatus.Todo
                             };
 
-                            if (userAction.RelatedEntityID is null)
-                            {
-                                throw new NullReferenceException();
-                            }
-
-                            Change change = new(DomainEntityType.Task, userAction.RelatedEntityID.Value, null, null, status, null, null, false, null);
+                            change = new(DomainEntityType.Task, task.ID, null, null, status, null, null, false, null);
                             issuedActions.Add(new(trigger,
                                             systemAction.Type,
                                             DomainEntityType.Task,
                                             null,
-                                            userAction.RelatedEntityID.Value,
+                                            task.ID,
                                             null,
                                             change));
-                            
-                            break;
+                        }
                         
-                        case ActionTarget.RelatedTasks:
-                            var tasks = await DomainService.GetTasksByProject(context, projectID);
+                        break;
+                    
+                    case ActionTarget.InProgressTasks:
+                        tasks = await DomainService.GetTasksByProject(context, projectID);
+                        tasks = tasks.Where(t => t.Status == TaskItemStatus.InProgress).ToList();
 
-                            foreach (var task in tasks)
+                        foreach (var task in tasks)
+                        {
+                            status = systemAction.NewState switch
                             {
-                                status = systemAction.NewState switch
-                                {
-                                    State.TaskStatusTodo => DomainEntityStatus.Todo,
-                                    State.TaskStatusInProgress => DomainEntityStatus.InProgress,
-                                    State.TaskStatusOnHold => DomainEntityStatus.OnHold,
-                                    State.TaskStatusBlocked => DomainEntityStatus.InProgress,
-                                    State.TaskStatusCompleted => DomainEntityStatus.Completed,
-                                    _ => DomainEntityStatus.Todo
-                                };
+                                State.TaskStatusTodo => DomainEntityStatus.Todo,
+                                State.TaskStatusInProgress => DomainEntityStatus.InProgress,
+                                State.TaskStatusOnHold => DomainEntityStatus.OnHold,
+                                State.TaskStatusBlocked => DomainEntityStatus.InProgress,
+                                State.TaskStatusCompleted => DomainEntityStatus.Completed,
+                                _ => DomainEntityStatus.Todo
+                            };
 
-                                change = new(DomainEntityType.Task, task.ID, null, null, status, null, null, false, null);
-                                issuedActions.Add(new(trigger,
-                                                systemAction.Type,
-                                                DomainEntityType.Task,
-                                                null,
-                                                task.ID,
-                                                null,
-                                                change));
-                            }
-                            
-                            break;
-                        
-                        case ActionTarget.InProgressTasks:
-                            tasks = await DomainService.GetTasksByProject(context, projectID);
-                            tasks = tasks.Where(t => t.Status == TaskItemStatus.InProgress).ToList();
-
-                            foreach (var task in tasks)
-                            {
-                                status = systemAction.NewState switch
-                                {
-                                    State.TaskStatusTodo => DomainEntityStatus.Todo,
-                                    State.TaskStatusInProgress => DomainEntityStatus.InProgress,
-                                    State.TaskStatusOnHold => DomainEntityStatus.OnHold,
-                                    State.TaskStatusBlocked => DomainEntityStatus.InProgress,
-                                    State.TaskStatusCompleted => DomainEntityStatus.Completed,
-                                    _ => DomainEntityStatus.Todo
-                                };
-
-                                change = new(DomainEntityType.Task, task.ID, null, null, status, null, null, false, null);
-                                issuedActions.Add(new(trigger,
-                                                systemAction.Type,
-                                                DomainEntityType.Task,
-                                                null,
-                                                task.ID,
-                                                null,
-                                                change));
-                            }
-                            
-                            break;
-                        
-                        default:
-                            throw new UnexpectedActionTargetException();
-                    }
-
-                    break;
-
-                case ActionType.UnassignUsers:
-                    var users = await DomainService.GetUsersAssignedToTask(context, userAction.TargetID);
-
-                    foreach (var user in users)
-                    {
-                        issuedActions.Add(new(trigger,
+                            change = new(DomainEntityType.Task, task.ID, null, null, status, null, null, false, null);
+                            issuedActions.Add(new(trigger,
                                             systemAction.Type,
                                             DomainEntityType.Task,
-                                            DomainEntityType.User,
-                                            userAction.TargetID,
-                                            user.ID,
-                                            null));
-                    }
+                                            null,
+                                            task.ID,
+                                            null,
+                                            change));
+                        }
+                        
+                        break;
+                    
+                    default:
+                        throw new UnexpectedActionTargetException();
+                }
 
-                    break;
-                
-                default:
-                    throw new UnexpectedActionTypeException();
-            }
+                break;
 
-            return issuedActions;
+            case ActionType.UnassignUsers:
+                var users = await DomainService.GetUsersAssignedToTask(context, userAction.TargetID);
+
+                foreach (var user in users)
+                {
+                    issuedActions.Add(new(trigger,
+                                        systemAction.Type,
+                                        DomainEntityType.Task,
+                                        DomainEntityType.User,
+                                        userAction.TargetID,
+                                        user.ID,
+                                        null));
+                }
+
+                break;
+            
+            default:
+                throw new UnexpectedActionTypeException();
         }
+
+        return issuedActions;
     }
 
-    public static async Task<List<IssuedAction>> GenerateIssuedActionsFromUserAction(UserAction userAction, int projectID)
+    public static async Task<List<IssuedAction>> GenerateIssuedActionsFromUserAction(AppDbContext context, UserAction userAction, int projectID)
     {
         List<IssuedAction> issuedActions = [];
         List<Trigger> triggers = [];
@@ -836,7 +789,7 @@ public static class WorkflowEngine
         while (true)
         {
             var trigger = triggers[i];
-            var states = await GetStatesFromTriggerAndAction(trigger, userAction.TargetID, userAction.RelatedEntityID, userAction.Change);
+            var states = await GetStatesFromTriggerAndAction(context, trigger, userAction.TargetID, userAction.RelatedEntityID, userAction.Change);
             
             if (states.Count == 0)
             {
@@ -845,12 +798,12 @@ public static class WorkflowEngine
 
             foreach (var state in states)
             {
-                var systemActions = await Propagate(projectID, trigger, state);
+                var systemActions = await Propagate(context, projectID, trigger, state);
 
                 foreach (var systemAction in systemActions)
                 {
                     triggers.AddRange(GetTriggersFromActionType(systemAction.Type, userAction.TargetType, userAction.RelatedEntityType, userAction.Change));
-                    issuedActions.AddRange(await GenerateIssuedActionsFromSystemAction(trigger, userAction, systemAction, projectID));
+                    issuedActions.AddRange(await GenerateIssuedActionsFromSystemAction(context, trigger, userAction, systemAction, projectID));
                 }
             }
 
@@ -876,18 +829,15 @@ public static class WorkflowEngine
         return pairs;
     }
 
-    public static async Task<bool> ValidateIssuedActionSet(List<IssuedAction> issuedActions, Dictionary<EntityIdPair, int> entityVersions)
+    public static async Task<bool> ValidateIssuedActionSet(AppDbContext context, List<IssuedAction> issuedActions, Dictionary<EntityIdPair, int> entityVersions)
     {
         List<Project> projects;
         List<TaskItem> tasks;
         List<Tag> tags;
 
-        using (var context = AppDbContextFactory.CreateContext())
-        {
-            projects = await context.Projects.ToListAsync();
-            tasks = await context.Tasks.ToListAsync();
-            tags = await context.Tags.ToListAsync();
-        }
+        projects = await context.Projects.ToListAsync();
+        tasks = await context.Tasks.ToListAsync();
+        tags = await context.Tags.ToListAsync();
 
         foreach (var issuedAction in issuedActions)
         {
@@ -930,165 +880,151 @@ public static class WorkflowEngine
         return true;
     }
 
-    public static async Task PersistPendingActions(List<IssuedAction> issuedActions)
+    public static async Task ExecutePendingIssuedActions(AppDbContext context)
     {
-        using (var context = AppDbContextFactory.CreateContext())
+        var issuedActions = await context.IssuedActions
+            .Where(ia => ia.Status == IssuedActionStatus.Pending)
+            .ToListAsync();
+        
+        foreach (var issuedAction in issuedActions)
         {
-            context.IssuedActions.AddRange(issuedActions);
-            await context.SaveChangesAsync();
-        }
-    }
-
-    public static async Task ExecutePendingIssuedActions()
-    {
-        using (var context = AppDbContextFactory.CreateContext())
-        {
-            var issuedActions = await context.IssuedActions
-                .Where(ia => ia.Status == IssuedActionStatus.Pending)
-                .ToListAsync();
-            
-            foreach (var issuedAction in issuedActions)
+            switch (issuedAction.ActionType)
             {
-                switch (issuedAction.ActionType)
-                {
-                    case ActionType.LogActivity:
-                        // TODO: implement after LoggingService is done
-                        break;
-                    
-                    case ActionType.SendNotification:
-                        // TODO: implement after NotificationService is done
-                        break;
-
-                    case ActionType.CreateEntity:
-                        switch (issuedAction.TargetType)
-                        {
-                            case DomainEntityType.Task:
-                                if (issuedAction.Change is null
-                                 || issuedAction.RelatedEntityType is null
-                                 || issuedAction.RelatedEntityID is null)
-                                {
-                                    throw new NullReferenceException();
-                                }
-
-                                await DomainService.CreateTask(context, issuedAction.RelatedEntityID.Value, issuedAction.Change);
-                                break;
-                            
-                            case DomainEntityType.Tag:
-                                if (issuedAction.Change is null
-                                 || issuedAction.RelatedEntityType is null
-                                 || issuedAction.RelatedEntityID is null)
-                                {
-                                    throw new NullReferenceException();
-                                }
-
-                                await DomainService.CreateTag(context, issuedAction.RelatedEntityID.Value, issuedAction.Change);
-                                break;
-                            
-                            default:
-                                throw new UnexpectedEntityTypeException();
-                        }
-
-                        break;
-
-                    case ActionType.DeleteEntity:
-                        switch (issuedAction.TargetType)
-                        {
-                            case DomainEntityType.Project:
-                                await DomainService.DeleteProject(context, issuedAction.TargetID);
-                                break;
-
-                            case DomainEntityType.Task:
-                                await DomainService.DeleteTask(context, issuedAction.TargetID);
-                                break;
-                            
-                            case DomainEntityType.Tag:
-                                await DomainService.DeleteTag(context, issuedAction.TargetID);
-                                break;
-                            
-                            default:
-                                throw new UnexpectedEntityTypeException();
-                        }
-
-                        break;
-                    
-                    case ActionType.ChangeAttribute:
-                        if (issuedAction.Change is null)
-                        {
-                            throw new NullReferenceException();
-                        }
-                        
-                        await DomainService.ApplyChange(context, issuedAction.Change);
-                        break;
-                    
-                    case ActionType.ChangeUserRole:
-                        if (issuedAction.Change is null || issuedAction.Change.Role is null || issuedAction.RelatedEntityID is null)
-                        {
-                            throw new NullReferenceException();
-                        }
-
-                        await DomainService.ChangeUserRole(context, issuedAction.RelatedEntityID.Value, issuedAction.TargetID, issuedAction.Change.Role.Value);
-                        break;
-                    
-                    case ActionType.AssignUser:
-                        switch (issuedAction.RelatedEntityType)
-                        {
-                            case DomainEntityType.Project:
-                                if (issuedAction.Change is null || issuedAction.Change.Role is null || issuedAction.RelatedEntityID is null)
-                                {
-                                    throw new NullReferenceException();
-                                }
-
-                                await DomainService.AssignUserToProject(context, issuedAction.TargetID, issuedAction.RelatedEntityID.Value, issuedAction.Change.Role.Value);
-                                break;
-                            
-                            case DomainEntityType.Task:
-                                if (issuedAction.RelatedEntityID is null)
-                                {
-                                    throw new NullReferenceException();
-                                }
-
-                                await DomainService.AssignUserToTask(context, issuedAction.TargetID, issuedAction.RelatedEntityID.Value);
-                                break;
-                            
-                            default:
-                                throw new UnexpectedEntityTypeException();
-                        }
-
-                        break;
-                        
-                    case ActionType.UnassignUser:
-                        switch (issuedAction.RelatedEntityType)
-                        {
-                            case DomainEntityType.Project:
-                                if (issuedAction.RelatedEntityID is null)
-                                {
-                                    throw new NullReferenceException();
-                                }
-
-                                await DomainService.UnassignUserFromProject(context, issuedAction.TargetID, issuedAction.RelatedEntityID.Value);
-                                break;
-                            
-                            case DomainEntityType.Task:
-                                if (issuedAction.RelatedEntityID is null)
-                                {
-                                    throw new NullReferenceException();
-                                }
-
-                                await DomainService.UnassignUserFromTask(context, issuedAction.TargetID, issuedAction.RelatedEntityID.Value);
-                                break;
-                            
-                            default:
-                                throw new UnexpectedEntityTypeException();
-                        }
-
-                        break;
+                case ActionType.LogActivity:
+                    // TODO: implement after LoggingService is done
+                    break;
                 
-                    default:
-                        throw new UnexpectedActionTypeException();
-                }
-            }
+                case ActionType.SendNotification:
+                    // TODO: implement after NotificationService is done
+                    break;
 
-            await context.SaveChangesAsync();
+                case ActionType.CreateEntity:
+                    switch (issuedAction.TargetType)
+                    {
+                        case DomainEntityType.Task:
+                            if (issuedAction.Change is null
+                                || issuedAction.RelatedEntityType is null
+                                || issuedAction.RelatedEntityID is null)
+                            {
+                                throw new NullReferenceException();
+                            }
+
+                            await DomainService.CreateTask(context, issuedAction.RelatedEntityID.Value, issuedAction.Change);
+                            break;
+                        
+                        case DomainEntityType.Tag:
+                            if (issuedAction.Change is null
+                                || issuedAction.RelatedEntityType is null
+                                || issuedAction.RelatedEntityID is null)
+                            {
+                                throw new NullReferenceException();
+                            }
+
+                            await DomainService.CreateTag(context, issuedAction.RelatedEntityID.Value, issuedAction.Change);
+                            break;
+                        
+                        default:
+                            throw new UnexpectedEntityTypeException();
+                    }
+
+                    break;
+
+                case ActionType.DeleteEntity:
+                    switch (issuedAction.TargetType)
+                    {
+                        case DomainEntityType.Project:
+                            await DomainService.DeleteProject(context, issuedAction.TargetID);
+                            break;
+
+                        case DomainEntityType.Task:
+                            await DomainService.DeleteTask(context, issuedAction.TargetID);
+                            break;
+                        
+                        case DomainEntityType.Tag:
+                            await DomainService.DeleteTag(context, issuedAction.TargetID);
+                            break;
+                        
+                        default:
+                            throw new UnexpectedEntityTypeException();
+                    }
+
+                    break;
+                
+                case ActionType.ChangeAttribute:
+                    if (issuedAction.Change is null)
+                    {
+                        throw new NullReferenceException();
+                    }
+                    
+                    await DomainService.ApplyChange(context, issuedAction.Change);
+                    break;
+                
+                case ActionType.ChangeUserRole:
+                    if (issuedAction.Change is null || issuedAction.Change.Role is null || issuedAction.RelatedEntityID is null)
+                    {
+                        throw new NullReferenceException();
+                    }
+
+                    await DomainService.ChangeUserRole(context, issuedAction.RelatedEntityID.Value, issuedAction.TargetID, issuedAction.Change.Role.Value);
+                    break;
+                
+                case ActionType.AssignUser:
+                    switch (issuedAction.RelatedEntityType)
+                    {
+                        case DomainEntityType.Project:
+                            if (issuedAction.Change is null || issuedAction.Change.Role is null || issuedAction.RelatedEntityID is null)
+                            {
+                                throw new NullReferenceException();
+                            }
+
+                            await DomainService.AssignUserToProject(context, issuedAction.TargetID, issuedAction.RelatedEntityID.Value, issuedAction.Change.Role.Value);
+                            break;
+                        
+                        case DomainEntityType.Task:
+                            if (issuedAction.RelatedEntityID is null)
+                            {
+                                throw new NullReferenceException();
+                            }
+
+                            await DomainService.AssignUserToTask(context, issuedAction.TargetID, issuedAction.RelatedEntityID.Value);
+                            break;
+                        
+                        default:
+                            throw new UnexpectedEntityTypeException();
+                    }
+
+                    break;
+                    
+                case ActionType.UnassignUser:
+                    switch (issuedAction.RelatedEntityType)
+                    {
+                        case DomainEntityType.Project:
+                            if (issuedAction.RelatedEntityID is null)
+                            {
+                                throw new NullReferenceException();
+                            }
+
+                            await DomainService.UnassignUserFromProject(context, issuedAction.TargetID, issuedAction.RelatedEntityID.Value);
+                            break;
+                        
+                        case DomainEntityType.Task:
+                            if (issuedAction.RelatedEntityID is null)
+                            {
+                                throw new NullReferenceException();
+                            }
+
+                            await DomainService.UnassignUserFromTask(context, issuedAction.TargetID, issuedAction.RelatedEntityID.Value);
+                            break;
+                        
+                        default:
+                            throw new UnexpectedEntityTypeException();
+                    }
+
+                    break;
+            
+                default:
+                    throw new UnexpectedActionTypeException();
+            }
         }
     }
 }

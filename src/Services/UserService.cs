@@ -7,25 +7,21 @@ namespace Services;
 
 public static class UserService
 {
-    public static async Task CreateUser(string username, string email, string passwordHash)
+    public static async Task CreateUser(AppDbContext context, string username, string email, string passwordHash)
     {
-        using (var context = AppDbContextFactory.CreateContext())
+        bool isUsernameDuplicate = await context.Users
+            .AnyAsync(u => u.Username == username);
+        
+        if (isUsernameDuplicate)
         {
-            bool isUsernameDuplicate = await context.Users
-                .AnyAsync(u => u.Username == username);
-            
-            if (isUsernameDuplicate)
-            {
-                throw new DuplicateUsernameException();
-            }
-
-            User user = new(username, email, passwordHash);
-            context.Add(user);
-            await context.SaveChangesAsync();
+            throw new DuplicateUsernameException();
         }
 
-        // TODO: create notification
-        // TODO: log activity?
+        User user = new(username, email, passwordHash);
+        context.Add(user);
+
+    // TODO: create notification
+    // TODO: log activity?
     }
 
     public static void Login()
@@ -33,113 +29,81 @@ public static class UserService
         // TODO
     }
 
-    public static async Task ChangeUsername(int userID, string newUsername)
+    public static async Task ChangeUsername(AppDbContext context,int userID, string newUsername)
     {
-        using (var context = AppDbContextFactory.CreateContext())
+        var user = await context.Users
+            .SingleOrDefaultAsync(u => u.ID == userID);
+        
+        if (user is null)
         {
-            var user = await context.Users
-                .SingleOrDefaultAsync(u => u.ID == userID);
-            
-            if (user is null)
-            {
-                throw new InexistentUserException();
-            }
-            
-            user.Username = newUsername;
-            await context.SaveChangesAsync();
+            throw new InexistentUserException();
         }
+        
+        user.Username = newUsername;
     }
 
-    public static async Task ChangeEmail(int userID, string newEmail)
+    public static async Task ChangeEmail(AppDbContext context, int userID, string newEmail)
     {
-        using (var context = AppDbContextFactory.CreateContext())
+        var user = await context.Users
+            .SingleOrDefaultAsync(u => u.ID == userID);
+        
+        if (user is null)
         {
-            var user = await context.Users
-                .SingleOrDefaultAsync(u => u.ID == userID);
-            
-            if (user is null)
-            {
-                throw new InexistentUserException();
-            }
-            
-            user.Email = newEmail;
-            await context.SaveChangesAsync();
+            throw new InexistentUserException();
         }
+        
+        user.Email = newEmail;
     }
 
-    public static async Task ChangePassword(int userID, string newPasswordHash)
+    public static async Task ChangePassword(AppDbContext context, int userID, string newPasswordHash)
     {
-        using (var context = AppDbContextFactory.CreateContext())
+        var user = await context.Users
+            .SingleOrDefaultAsync(u => u.ID == userID);
+        
+        if (user is null)
         {
-            var user = await context.Users
-                .SingleOrDefaultAsync(u => u.ID == userID);
-            
-            if (user is null)
-            {
-                throw new InexistentUserException();
-            }
-            
-            user.PasswordHash = newPasswordHash;
-            await context.SaveChangesAsync();
+            throw new InexistentUserException();
         }
+        
+        user.PasswordHash = newPasswordHash;
     }
 
-    public static async Task<User> GetUser(int userID)
+    public static async Task<User> GetUser(AppDbContext context, int userID)
     {
-        using (var context = AppDbContextFactory.CreateContext())
+        var user = await context.Users
+            .SingleOrDefaultAsync(u => u.ID == userID);
+        
+        if (user is null || !user.IsActive)
         {
-            var user = await context.Users
-                .SingleOrDefaultAsync(u => u.ID == userID);
-            
-            if (user is null || !user.IsActive)
-            {
-                throw new InexistentUserException();
-            }
-
-            return user;
+            throw new InexistentUserException();
         }
+
+        return user;
     }
 
-    public static async Task ActivateUser(int userID)
+    public static async Task ActivateUser(AppDbContext context, int userID)
     {
-        using (var context = AppDbContextFactory.CreateContext())
+        var user = await context.Users
+            .SingleOrDefaultAsync(u => u.ID == userID);
+        
+        if (user is null)
         {
-            var user = await context.Users
-                .SingleOrDefaultAsync(u => u.ID == userID);
-            
-            if (user is null)
-            {
-                throw new InexistentUserException();
-            }
-            
-            user.IsActive = true;
-            await context.SaveChangesAsync();
+            throw new InexistentUserException();
         }
+        
+        user.IsActive = true;
     }
 
-    public static async Task DeactivateUser(int userID)
+    public static async Task DeactivateUser(AppDbContext context, int userID)
     {
-        using (var context = AppDbContextFactory.CreateContext())
+        var user = await context.Users
+            .SingleOrDefaultAsync(u => u.ID == userID);
+        
+        if (user is null)
         {
-            var user = await context.Users
-                .SingleOrDefaultAsync(u => u.ID == userID);
-            
-            if (user is null)
-            {
-                throw new InexistentUserException();
-            }
-            
-            user.IsActive = false;
-            await context.SaveChangesAsync();
+            throw new InexistentUserException();
         }
-    }
-
-    public static async Task<List<User>> GetUsers()
-    {
-        using (var context = AppDbContextFactory.CreateContext())
-        {
-            return await context.Users
-                .ToListAsync();
-        }
+        
+        user.IsActive = false;
     }
 }

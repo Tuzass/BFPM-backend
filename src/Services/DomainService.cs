@@ -207,66 +207,63 @@ public static class DomainService
             .ToListAsync();
     }
 
-    public static async Task<int> UploadProject(Project project, List<TaskItem> tasks, List<Tag> tags, List<TaskTagLink> taskTagLinks)
+    public static async Task<int> UploadProject(AppDbContext context, Project project, List<TaskItem> tasks, List<Tag> tags, List<TaskTagLink> taskTagLinks)
     {
-        using (var context = AppDbContextFactory.CreateContext())
+        var isDuplicate = await context.Projects
+            .AnyAsync(p => p.OwnerID == project.OwnerID && p.Name == project.Name);
+        
+        if (isDuplicate)
         {
-            var isDuplicate = await context.Projects
-                .AnyAsync(p => p.OwnerID == project.OwnerID && p.Name == project.Name);
-            
-            if (isDuplicate)
-            {
-                throw new DuplicateProjectException();
-            }
-
-            await context.SaveChangesAsync();
-
-            List<TaskItem> newTasks = [];
-            Dictionary<int, TaskItem> newTasksByOldID = [];
-
-            foreach (var t in tasks)
-            {
-                TaskItem newTask = new(project.ID, t.Name, t.Description, t.Status, t.Priority, t.DueDate, null, null);
-
-                if (t.Status == TaskItemStatus.Completed)
-                {
-                    newTask.Complete();
-                }
-
-                newTasks.Add(newTask);
-                newTasksByOldID.Add(t.ID, newTask);
-            }
-
-            List<Tag> newTags = [];
-            Dictionary<int, Tag> newTagsByOldID = [];
-
-            foreach (var t in tags)
-            {
-
-                Tag newTag = new(project.ID, t.Name);
-                newTags.Add(newTag);
-                newTagsByOldID.Add(t.ID, newTag);
-            }
-
-            context.Tasks.AddRange(newTasks);
-            context.Tags.AddRange(newTags);
-            await context.SaveChangesAsync();
-
-            List<TaskTagLink> newLinks = [];
-            
-            foreach (var link in taskTagLinks)
-            {
-                int newTaskID = newTasksByOldID[link.TaskID].ID;
-                int newTagID = newTagsByOldID[link.TagID].ID;
-
-                newLinks.Add(new(newTaskID, newTagID));
-            }
-
-            context.TaskTagLinks.AddRange(newLinks);
-            await context.SaveChangesAsync();
+            throw new DuplicateProjectException();
         }
 
-        await WorkflowEngine.CreateSystemActionPreferences(project.ID);
+        await context.SaveChangesAsync();
+
+        List<TaskItem> newTasks = [];
+        Dictionary<int, TaskItem> newTasksByOldID = [];
+
+        foreach (var t in tasks)
+        {
+            TaskItem newTask = new(project.ID, t.Name, t.Description, t.Status, t.Priority, t.DueDate, null, null);
+
+            if (t.Status == TaskItemStatus.Completed)
+            {
+                newTask.Complete();
+            }
+
+            newTasks.Add(newTask);
+            newTasksByOldID.Add(t.ID, newTask);
+        }
+
+        List<Tag> newTags = [];
+        Dictionary<int, Tag> newTagsByOldID = [];
+
+        foreach (var t in tags)
+        {
+
+            Tag newTag = new(project.ID, t.Name);
+            newTags.Add(newTag);
+            newTagsByOldID.Add(t.ID, newTag);
+        }
+
+        context.Tasks.AddRange(newTasks);
+        context.Tags.AddRange(newTags);
+        await context.SaveChangesAsync();
+
+        List<TaskTagLink> newLinks = [];
+        
+        foreach (var link in taskTagLinks)
+        {
+            int newTaskID = newTasksByOldID[link.TaskID].ID;
+            int newTagID = newTagsByOldID[link.TagID].ID;
+
+            newLinks.Add(new(newTaskID, newTagID));
+        }
+
+        context.TaskTagLinks.AddRange(newLinks);
+        await context.SaveChangesAsync();
+
+        await WorkflowEngine.CreateSystemActionPreferences(context, project.ID);
         return project.ID;
     }
 
