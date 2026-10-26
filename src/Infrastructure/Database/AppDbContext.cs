@@ -32,26 +32,19 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             .ValueGeneratedNever();
 
         modelBuilder.Entity<User>()
-            .HasIndex(u => u.Username).IsUnique();
-        
-        modelBuilder.Entity<User>()
             .Property(u => u.Username)
-            .UseCollation("NOCASE");
+            .HasColumnType("citext");
 
         modelBuilder.Entity<User>()
             .HasIndex(u => u.Email).IsUnique();
-        
-        modelBuilder.Entity<User>()
-            .Property(u => u.Email)
-            .UseCollation("NOCASE");
         
         modelBuilder.Entity<Project>()
             .Property(p => p.ID)
             .ValueGeneratedOnAdd();
         
         modelBuilder.Entity<Project>()
-            .Property(f => f.Name)
-            .UseCollation("NOCASE");
+            .Property(p => p.Name)
+            .HasColumnType("citext");
 
         modelBuilder.Entity<Project>()
             .HasOne<User>()
@@ -67,8 +60,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             .ValueGeneratedOnAdd();
         
         modelBuilder.Entity<TaskItem>()
-            .Property(f => f.Name)
-            .UseCollation("NOCASE");
+            .Property(t => t.Name)
+            .HasColumnType("citext");
         
         modelBuilder.Entity<TaskItem>()
             .HasIndex(t => new {t.ProjectID, t.Name}).IsUnique();
@@ -84,8 +77,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             .ValueGeneratedOnAdd();
         
         modelBuilder.Entity<Tag>()
-            .Property(f => f.Name)
-            .UseCollation("NOCASE");
+            .Property(t => t.Name)
+            .HasColumnType("citext");
 
         modelBuilder.Entity<Tag>()
             .HasIndex(t => new {t.ProjectID, t.Name}).IsUnique();

@@ -1,6 +1,5 @@
 using Infrastructure.Database;
-using Services;
-using Services.Exceptions;
+using Microsoft.EntityFrameworkCore;
 
 namespace API;
 
@@ -17,6 +16,13 @@ sealed class Program
         }
 
         AppDbContextFactory.ConnectionString = connectionString;
+
+        using (var context = AppDbContextFactory.CreateContext())
+        {
+            context.Database.ExecuteSqlRaw("CREATE EXTENSION IF NOT EXISTS citext;");
+            context.Database.EnsureCreated();
+        }
+
         builder.Services.AddOpenApi();
         builder.Services.AddControllers();
         var app = builder.Build();

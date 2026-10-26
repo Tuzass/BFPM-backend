@@ -12,6 +12,7 @@ public class AppDbContextFactory
             .UseNpgsql(ConnectionString)
             .Options;
         
-        return new AppDbContext(options);
+        var context = new AppDbContext(options);
+        return context;
     }
 }
