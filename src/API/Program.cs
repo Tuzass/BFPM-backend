@@ -1,5 +1,7 @@
 using Infrastructure.Database;
+using Services.Exceptions;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Diagnostics;
 
 namespace API;
 
@@ -31,6 +33,40 @@ sealed class Program
         {
             app.MapOpenApi();
         }
+
+        app.UseExceptionHandler(errorApp =>
+        {
+            errorApp.Run(async context =>
+            {
+                var exception = context.Features
+                    .Get<IExceptionHandlerFeature>()?
+                    .Error;
+
+                context.Response.ContentType = "application/json";
+
+                if (exception is InexistentUserException)
+                {
+                    context.Response.StatusCode =
+                        StatusCodes.Status404NotFound;
+
+                    await context.Response.WriteAsJsonAsync(new
+                    {
+                        error = exception.Message
+                    });
+                }
+
+                else
+                {
+                    context.Response.StatusCode =
+                        StatusCodes.Status500InternalServerError;
+
+                    await context.Response.WriteAsJsonAsync(new
+                    {
+                        error = "An unexpected error occurred"
+                    });
+                }
+            });
+        });
 
         app.UseHttpsRedirection();
         app.MapControllers();
