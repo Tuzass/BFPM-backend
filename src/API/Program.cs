@@ -3,7 +3,7 @@ using Infrastructure.Database;
 using Services.Exceptions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Diagnostics;
-using Microsoft.AspNetCore.Authentication.BearerToken;
+using Microsoft.AspNetCore.Identity;
 
 namespace API;
 
@@ -33,6 +33,12 @@ sealed class Program
         builder.Services.AddControllers();
         builder.Services.AddIdentityApiEndpoints<User>().AddEntityFrameworkStores<AppDbContext>();
         builder.Services.AddAuthorization();
+
+        builder.Services.Configure<IdentityOptions>(options =>
+        {
+            options.User.AllowedUserNameCharacters =
+                "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_";
+        });
 
         var app = builder.Build();
 
@@ -95,7 +101,7 @@ sealed class Program
         app.UseHttpsRedirection();
         app.MapControllers();
         app.MapGroup("/api/auth").MapIdentityApi<User>();
-        
+
         app.Run();
     }
 }

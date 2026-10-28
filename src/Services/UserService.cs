@@ -93,10 +93,23 @@ public static class UserService
         user.PasswordHash = newPasswordHash;
     }
 
-    public static async Task<User> GetUser(AppDbContext context, int userID)
+    public static async Task<User> GetUserByID(AppDbContext context, int userID)
     {
         var user = await context.Users
             .SingleOrDefaultAsync(u => u.Id == userID);
+        
+        if (user is null || !user.IsActive)
+        {
+            throw new InexistentUserException();
+        }
+
+        return user;
+    }
+
+    public static async Task<User> GetUserByName(AppDbContext context, string username)
+    {
+        var user = await context.Users
+            .SingleOrDefaultAsync(u => u.UserName == username);
         
         if (user is null || !user.IsActive)
         {
