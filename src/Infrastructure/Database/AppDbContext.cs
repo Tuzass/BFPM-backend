@@ -2,12 +2,13 @@
 using Domain.Entities;
 using Infrastructure.Entities;
 using Workflow.Entities;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 
 namespace Infrastructure.Database;
 
-public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(options)
+public class AppDbContext(DbContextOptions<AppDbContext> options) : IdentityDbContext<User, IdentityRole<int>, int>(options)
 {
-    public DbSet<User> Users {get; set;}
     public DbSet<Project> Projects {get; set;}
     public DbSet<TaskItem> Tasks {get; set;}
     public DbSet<Tag> Tags {get; set;}
@@ -27,12 +28,13 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        modelBuilder.Entity<User>()
-            .Property(u => u.ID)
-            .ValueGeneratedNever();
+        base.OnModelCreating(modelBuilder);
 
         modelBuilder.Entity<User>()
-            .Property(u => u.Username)
+            .Property(u => u.Id);
+
+        modelBuilder.Entity<User>()
+            .Property(u => u.UserName)
             .HasColumnType("citext");
 
         modelBuilder.Entity<User>()

@@ -2,26 +2,34 @@ using Domain.Entities;
 using Services.Exceptions;
 using Infrastructure.Database;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Identity;
 
 namespace Services;
 
 public static class UserService
 {
-    public static async Task CreateUser(AppDbContext context, string username, string email, string passwordHash)
+    public static async Task RegisterUser(AppDbContext context, string username, string email, string passwordHash)
     {
         bool isUsernameDuplicate = await context.Users
-            .AnyAsync(u => u.Username == username);
+            .AnyAsync(u => u.UserName == username);
         
         if (isUsernameDuplicate)
         {
             throw new DuplicateUsernameException();
         }
 
-        User user = new(username, email, passwordHash);
-        context.Add(user);
+        bool isEmailDuplicate = await context.Users
+            .AnyAsync(u => u.Email == email);
 
-    // TODO: create notification
-    // TODO: log activity?
+        if (isEmailDuplicate)
+        {
+            throw new DuplicateEmailException();
+        }
+
+        context.Users.Add(new(username, email));
+
+        // TODO: create notification
+        // TODO: log activity?
     }
 
     public static void Login()
@@ -32,20 +40,20 @@ public static class UserService
     public static async Task ChangeUsername(AppDbContext context,int userID, string newUsername)
     {
         var user = await context.Users
-            .SingleOrDefaultAsync(u => u.ID == userID);
+            .SingleOrDefaultAsync(u => u.Id == userID);
         
         if (user is null)
         {
             throw new InexistentUserException();
         }
         
-        user.Username = newUsername;
+        user.UserName = newUsername;
     }
 
     public static async Task ChangeEmail(AppDbContext context, int userID, string newEmail)
     {
         var user = await context.Users
-            .SingleOrDefaultAsync(u => u.ID == userID);
+            .SingleOrDefaultAsync(u => u.Id == userID);
         
         if (user is null)
         {
@@ -58,7 +66,7 @@ public static class UserService
     public static async Task ChangePassword(AppDbContext context, int userID, string newPasswordHash)
     {
         var user = await context.Users
-            .SingleOrDefaultAsync(u => u.ID == userID);
+            .SingleOrDefaultAsync(u => u.Id == userID);
         
         if (user is null)
         {
@@ -71,7 +79,7 @@ public static class UserService
     public static async Task<User> GetUser(AppDbContext context, int userID)
     {
         var user = await context.Users
-            .SingleOrDefaultAsync(u => u.ID == userID);
+            .SingleOrDefaultAsync(u => u.Id == userID);
         
         if (user is null || !user.IsActive)
         {
@@ -84,7 +92,7 @@ public static class UserService
     public static async Task ActivateUser(AppDbContext context, int userID)
     {
         var user = await context.Users
-            .SingleOrDefaultAsync(u => u.ID == userID);
+            .SingleOrDefaultAsync(u => u.Id == userID);
         
         if (user is null)
         {
@@ -97,7 +105,7 @@ public static class UserService
     public static async Task DeactivateUser(AppDbContext context, int userID)
     {
         var user = await context.Users
-            .SingleOrDefaultAsync(u => u.ID == userID);
+            .SingleOrDefaultAsync(u => u.Id == userID);
         
         if (user is null)
         {

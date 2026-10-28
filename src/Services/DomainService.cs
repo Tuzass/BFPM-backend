@@ -84,7 +84,7 @@ public static class DomainService
             .Join(
                 context.Users,
                 pa => pa.UserID,
-                u => u.ID,
+                u => u.Id,
                 (pa, u) => u)
             .ToListAsync();
     }
@@ -109,7 +109,7 @@ public static class DomainService
             .Join(
                 context.Users,
                 ta => ta.UserID,
-                u => u.ID,
+                u => u.Id,
                 (ta, u) => u)
             .ToListAsync();
     }

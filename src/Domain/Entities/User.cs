@@ -1,20 +1,17 @@
-﻿namespace Domain.Entities;
+﻿using Microsoft.AspNetCore.Identity;
 
-public class User
+namespace Domain.Entities;
+
+public class User: IdentityUser<int>
 {
-    public int ID {get; private set;}
-    public string Username {get; set;} = null!;
-    public string Email {get; set;} = null!;
-    public string PasswordHash {get; set;} = null!;
     public bool IsActive {get; set;}
 
     private User() { }
 
-    public User(string username, string email, string passwordHash)
+    public User(string username, string email)
     {
-        Username = username;
+        UserName = username;
         Email = email;
-        PasswordHash = passwordHash;
         IsActive = true;
     }
 }

@@ -757,7 +757,7 @@ public static class WorkflowEngine
                                         DomainEntityType.Task,
                                         DomainEntityType.User,
                                         userAction.TargetID,
-                                        user.ID,
+                                        user.Id,
                                         null));
                 }
 
