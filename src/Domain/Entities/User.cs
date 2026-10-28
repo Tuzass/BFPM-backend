@@ -6,7 +6,7 @@ public class User: IdentityUser<int>
 {
     public bool IsActive {get; set;}
 
-    private User() { }
+    public User() { }
 
     public User(string username, string email)
     {

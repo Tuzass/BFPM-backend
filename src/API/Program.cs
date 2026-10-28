@@ -1,7 +1,6 @@
 using Domain.Entities;
 using Infrastructure.Database;
 using Services.Exceptions;
-using API.Exceptions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Authentication.BearerToken;
@@ -32,8 +31,8 @@ sealed class Program
 
         builder.Services.AddOpenApi();
         builder.Services.AddControllers();
-        builder.Services.AddIdentityCore<User>().AddEntityFrameworkStores<AppDbContext>();
-        // builder.Services.AddAuthentication(BearerTokenDefaults.AuthenticationScheme).AddBearerToken
+        builder.Services.AddIdentityApiEndpoints<User>().AddEntityFrameworkStores<AppDbContext>();
+        builder.Services.AddAuthorization();
 
         var app = builder.Build();
 
@@ -95,6 +94,8 @@ sealed class Program
 
         app.UseHttpsRedirection();
         app.MapControllers();
+        app.MapGroup("/api/auth").MapIdentityApi<User>();
+        
         app.Run();
     }
 }

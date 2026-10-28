@@ -2,12 +2,29 @@ using Domain.Entities;
 using Services.Exceptions;
 using Infrastructure.Database;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.AspNetCore.Identity;
 
 namespace Services;
 
 public static class UserService
 {
+    public static async Task<bool> IsUsernameDuplicate(string username)
+    {
+        using (var context = AppDbContextFactory.CreateContext())
+        {
+            return await context.Users
+                .AnyAsync(u => u.UserName == username);
+        }
+    }
+
+    public static async Task<bool> IsEmailDuplicate(string email)
+    {
+        using (var context = AppDbContextFactory.CreateContext())
+        {
+            return await context.Users
+                .AnyAsync(u => u.Email == email);
+        }
+    }
+
     public static async Task RegisterUser(AppDbContext context, string username, string email, string passwordHash)
     {
         bool isUsernameDuplicate = await context.Users
