@@ -19,6 +19,5 @@ public class CreateTaskRequest
     [Required]
     public TaskItemPriority Priority {get; set;}
 
-    [Required]
-    public DateTime DueDate {get; set;}
+    public DateTime? DueDate {get; set;}
 }

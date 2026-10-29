@@ -32,7 +32,9 @@ public class UserController: ControllerBase
         var user = await _userManager.GetUserAsync(User);
 
         if (user is null)
-            return Unauthorized();
+        {
+            throw new InexistentUserException();
+        }
 
         return Ok(new
         {

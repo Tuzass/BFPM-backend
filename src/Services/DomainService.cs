@@ -207,6 +207,18 @@ public static class DomainService
             .ToListAsync();
     }
 
+    public static async Task<List<TaskTagLink>> GetTaskTagLinksByProject(AppDbContext context, int projectID)
+    {
+        return await context.Tasks
+            .Where(t => t.ProjectID == projectID)
+            .Join(
+                context.TaskTagLinks,
+                t => t.ID,
+                ttl => ttl.TaskID,
+                (t, ttl) => ttl
+            ).ToListAsync();
+    }
+
     public static async Task<int> UploadProject(AppDbContext context, Project project, List<TaskItem> tasks, List<Tag> tags, List<TaskTagLink> taskTagLinks)
     {
         var isDuplicate = await context.Projects
@@ -217,33 +229,28 @@ public static class DomainService
             throw new DuplicateProjectException();
         }
 
+        context.Projects.Add(project);
         await context.SaveChangesAsync();
 
         List<TaskItem> newTasks = [];
-        Dictionary<int, TaskItem> newTasksByOldID = [];
-
-        foreach (var t in tasks)
+        foreach (var task in tasks)
         {
-            TaskItem newTask = new(project.ID, t.Name, t.Description, t.Status, t.Priority, t.DueDate, null, null);
+            TaskItem newTask = new(project.ID, task.Name, task.Description, task.Status, task.Priority, task.DueDate, null, null);
 
-            if (t.Status == TaskItemStatus.Completed)
+            if (task.Status == TaskItemStatus.Completed)
             {
+                newTask.ChangeStatus(TaskItemStatus.Todo);
                 newTask.Complete();
             }
 
             newTasks.Add(newTask);
-            newTasksByOldID.Add(t.ID, newTask);
         }
 
         List<Tag> newTags = [];
-        Dictionary<int, Tag> newTagsByOldID = [];
-
-        foreach (var t in tags)
+        foreach (var tag in tags)
         {
-
-            Tag newTag = new(project.ID, t.Name);
+            Tag newTag = new(project.ID, tag.Name);
             newTags.Add(newTag);
-            newTagsByOldID.Add(t.ID, newTag);
         }
 
         context.Tasks.AddRange(newTasks);
@@ -251,11 +258,10 @@ public static class DomainService
         await context.SaveChangesAsync();
 
         List<TaskTagLink> newLinks = [];
-        
         foreach (var link in taskTagLinks)
         {
-            int newTaskID = newTasksByOldID[link.TaskID].ID;
-            int newTagID = newTagsByOldID[link.TagID].ID;
+            int newTaskID = newTasks[link.TaskID].ID;
+            int newTagID = newTags[link.TagID].ID;
 
             newLinks.Add(new(newTaskID, newTagID));
         }

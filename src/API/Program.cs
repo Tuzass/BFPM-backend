@@ -74,8 +74,24 @@ sealed class Program
                     });
                 }
 
+                else if (exception is InexistentProjectException
+                      || exception is InexistentTaskException
+                      || exception is InexistentTagException
+                      || exception is Services.Exceptions.UnauthorizedAccessException)
+                {
+                    context.Response.StatusCode = StatusCodes.Status403Forbidden;
+
+                    await context.Response.WriteAsJsonAsync(new
+                    {
+                        error = "User is not authorized."
+                    });
+                }
+
                 else if (exception is DuplicateUsernameException
-                 || exception is DuplicateEmailException)
+                      || exception is DuplicateEmailException
+                      || exception is DuplicateProjectException
+                      || exception is DuplicateTaskException
+                      || exception is DuplicateTagException)
                 {
                     context.Response.StatusCode = StatusCodes.Status409Conflict;
 
