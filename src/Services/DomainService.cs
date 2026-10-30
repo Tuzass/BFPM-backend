@@ -273,7 +273,7 @@ public static class DomainService
         return project.ID;
     }
 
-    public static async Task CreateTask(AppDbContext context, int projectID, Change change)
+    public static async Task<TaskItem> CreateTaskFromChange(AppDbContext context, int projectID, Change change)
     {
         if (change.Name is null || change.Description is null || change.Status is null || change.Priority is null || change.DueDate is null)
         {
@@ -298,27 +298,33 @@ public static class DomainService
             _ => TaskItemStatus.Todo
         };
 
-        TaskItem newTask = new(projectID, change.Name, change.Description, status, change.Priority.Value, change.DueDate, null, null);
-        context.Tasks.Add(newTask);
+        return new(projectID, change.Name, change.Description, status, change.Priority.Value, change.DueDate, null, null);
     }
 
-    public static async Task CreateTag(AppDbContext context, int projectID, Change change)
+    public static async Task CreateTask(AppDbContext context, TaskItem task)
     {
-        if (change.Name is null)
-        {
-            throw new NullReferenceException();
-        }
+        var isDuplicate = await context.Tasks
+            .AnyAsync(t => t.ProjectID == task.ProjectID && t.Name == task.Name);
         
+        if (isDuplicate)
+        {
+            throw new DuplicateTaskException();
+        }
+
+        context.Tasks.Add(task);
+    }
+
+    public static async Task CreateTag(AppDbContext context, Tag tag)
+    {
         var isDuplicate = await context.Tags
-            .AnyAsync(t => t.ProjectID == projectID && t.Name == change.Name);
+            .AnyAsync(t => t.ProjectID == tag.ProjectID && t.Name == tag.Name);
         
         if (isDuplicate)
         {
             throw new DuplicateTagException();
         }
 
-        Tag newTag = new(projectID, change.Name);
-        context.Tags.Add(newTag);
+        context.Tags.Add(tag);
     }
 
     public static async Task AssignTagToTask(AppDbContext context, int taskID, int tagID)

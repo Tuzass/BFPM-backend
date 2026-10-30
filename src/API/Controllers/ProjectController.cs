@@ -124,7 +124,7 @@ public class ProjectController: ControllerBase
             return CreatedAtAction(
                 nameof(GetProject),
                 new {id = projectID},
-                new {project.ID, project.Name, project.OwnerID}
+                new {project.ID, project.Name}
             );
         }
     }

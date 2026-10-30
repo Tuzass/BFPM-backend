@@ -909,18 +909,19 @@ public static class WorkflowEngine
                                 throw new NullReferenceException();
                             }
 
-                            await DomainService.CreateTask(context, issuedAction.RelatedEntityID.Value, issuedAction.Change);
+                            var task = await DomainService.CreateTaskFromChange(context, issuedAction.RelatedEntityID.Value, issuedAction.Change);
+                            await DomainService.CreateTask(context, task);
                             break;
                         
                         case DomainEntityType.Tag:
                             if (issuedAction.Change is null
-                                || issuedAction.RelatedEntityType is null
+                                || issuedAction.Change.Name is null
                                 || issuedAction.RelatedEntityID is null)
                             {
                                 throw new NullReferenceException();
                             }
 
-                            await DomainService.CreateTag(context, issuedAction.RelatedEntityID.Value, issuedAction.Change);
+                            await DomainService.CreateTag(context, new(issuedAction.RelatedEntityID.Value, issuedAction.Change.Name));
                             break;
                         
                         default:
