@@ -7,6 +7,7 @@ public class UserAction
 {
     public int ID {get; private set;}
     public int UserID {get; private set;}
+    public int ProjectID {get; private set;}
     public ActionType ActionType {get; private set;}
     public DomainEntityType TargetType {get; private set;}
     public DomainEntityType? RelatedEntityType {get; private set;}
@@ -17,9 +18,10 @@ public class UserAction
     public DateTime? ProcessedAt {get; private set;}
     public UserActionStatus Status {get; private set;}
 
-    public UserAction(int userID, ActionType actionType, DomainEntityType targetType, DomainEntityType? relatedEntityType, int targetID, int? relatedEntityID, Change? change)
+    public UserAction(int userID, int projectID, ActionType actionType, DomainEntityType targetType, DomainEntityType? relatedEntityType, int targetID, int? relatedEntityID, Change? change)
     {
         UserID = userID;
+        ProjectID = projectID;
         ActionType = actionType;
         TargetType = targetType;
         RelatedEntityType = relatedEntityType;

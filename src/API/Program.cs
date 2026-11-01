@@ -83,7 +83,19 @@ sealed class Program
 
                     await context.Response.WriteAsJsonAsync(new
                     {
-                        error = "User is not authorized."
+                        error = "User is not authorized"
+                    });
+                }
+
+                else if (exception is UnexpectedProjectStatusException
+                      || exception is UnexpectedTaskStatusException
+                      || exception is UnexpectedTaskPriorityException)
+                {
+                    context.Response.StatusCode = StatusCodes.Status400BadRequest;
+
+                    await context.Response.WriteAsJsonAsync(new
+                    {
+                        error = exception.Message
                     });
                 }
 

@@ -22,16 +22,16 @@ public class Change
     }
 
     [JsonConstructor]
-    public Change(DomainEntityType targetType, int targetID, string? name, string? description, DomainEntityStatus? status, TaskItemPriority? priority, DateTime? dueDate, bool dueDateChanged, ProjectRole? role)
+    public Change(DomainEntityType targetType, int targetID, ProjectRole? role, string? name, string? description = null, DomainEntityStatus? status = null, TaskItemPriority? priority = null, DateTime? dueDate = null, bool dueDateChanged = false)
     {
         TargetType = targetType;
         TargetID = targetID;
+        Role = role;
         Name = name;
         Description = description;
         Status = status;
         Priority = priority;
         DueDate = dueDate;
         DueDateChanged = dueDateChanged;
-        Role = role;
     }
 }

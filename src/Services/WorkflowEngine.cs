@@ -289,6 +289,27 @@ public static class WorkflowEngine
             .ToListAsync();
     }
 
+    public static async Task<UserAction> GetUserActionByID(AppDbContext context, int userActionID)
+    {
+        var userAction = await context.UserActions
+            .Where(ua => ua.ID == userActionID)
+            .SingleOrDefaultAsync();
+        
+        if (userAction is null)
+        {
+            throw new InexistentUserActionException();
+        }
+
+        return userAction;
+    }
+
+    public static async Task<List<IssuedAction>> GetIssuedActionsByUserAction(AppDbContext context, int userActionID)
+    {
+        return await context.IssuedActions
+            .Where(ia => ia.UserActionID == userActionID)
+            .ToListAsync();
+    }
+
     public static async Task ChangeSystemActionPreference(AppDbContext context, int ruleID, int actionID, int projectID)
     {
         var systemActionPreference = await context.SystemActionPreferences
@@ -302,7 +323,7 @@ public static class WorkflowEngine
         systemActionPreference.Enabled = !systemActionPreference.Enabled;
     }
 
-    public static async Task<List<SystemAction>> Propagate(AppDbContext context, int projectID, Trigger trigger, State state)
+    private static async Task<List<SystemAction>> Propagate(AppDbContext context, int projectID, Trigger trigger, State state)
     {
         return await context.WorkflowRules
             .Where(wr => wr.Trigger == trigger && wr.State == state)
@@ -650,7 +671,7 @@ public static class WorkflowEngine
         return states;
     }
 
-    private static async Task<List<IssuedAction>> GenerateIssuedActionsFromSystemAction(AppDbContext context, Trigger trigger, UserAction userAction, SystemAction systemAction, int projectID)
+    private static async Task<List<IssuedAction>> GenerateIssuedActionsFromSystemAction(AppDbContext context, Trigger trigger, UserAction userAction, SystemAction systemAction)
     {
         List<IssuedAction> issuedActions = [];
 
@@ -675,8 +696,9 @@ public static class WorkflowEngine
                             throw new NullReferenceException();
                         }
 
-                        Change change = new(DomainEntityType.Task, userAction.RelatedEntityID.Value, null, null, status, null, null, false, null);
-                        issuedActions.Add(new(trigger,
+                        Change change = new(DomainEntityType.Task, userAction.RelatedEntityID.Value, null, null, null, status);
+                        issuedActions.Add(new(userAction.ID,
+                                        trigger,
                                         systemAction.Type,
                                         DomainEntityType.Task,
                                         null,
@@ -687,7 +709,7 @@ public static class WorkflowEngine
                         break;
                     
                     case ActionTarget.RelatedTasks:
-                        var tasks = await DomainService.GetTasksByProject(context, projectID);
+                        var tasks = await DomainService.GetTasksByProject(context, userAction.ProjectID);
 
                         foreach (var task in tasks)
                         {
@@ -701,8 +723,9 @@ public static class WorkflowEngine
                                 _ => DomainEntityStatus.Todo
                             };
 
-                            change = new(DomainEntityType.Task, task.ID, null, null, status, null, null, false, null);
-                            issuedActions.Add(new(trigger,
+                            change = new(DomainEntityType.Task, task.ID, null, null, null, status);
+                            issuedActions.Add(new(userAction.ID,
+                                            trigger,
                                             systemAction.Type,
                                             DomainEntityType.Task,
                                             null,
@@ -714,7 +737,7 @@ public static class WorkflowEngine
                         break;
                     
                     case ActionTarget.InProgressTasks:
-                        tasks = await DomainService.GetTasksByProject(context, projectID);
+                        tasks = await DomainService.GetTasksByProject(context, userAction.ProjectID);
                         tasks = tasks.Where(t => t.Status == TaskItemStatus.InProgress).ToList();
 
                         foreach (var task in tasks)
@@ -729,8 +752,9 @@ public static class WorkflowEngine
                                 _ => DomainEntityStatus.Todo
                             };
 
-                            change = new(DomainEntityType.Task, task.ID, null, null, status, null, null, false, null);
-                            issuedActions.Add(new(trigger,
+                            change = new(DomainEntityType.Task, task.ID, null, null, null, status);
+                            issuedActions.Add(new(userAction.ID,
+                                            trigger,
                                             systemAction.Type,
                                             DomainEntityType.Task,
                                             null,
@@ -752,13 +776,14 @@ public static class WorkflowEngine
 
                 foreach (var user in users)
                 {
-                    issuedActions.Add(new(trigger,
-                                        systemAction.Type,
-                                        DomainEntityType.Task,
-                                        DomainEntityType.User,
-                                        userAction.TargetID,
-                                        user.Id,
-                                        null));
+                    issuedActions.Add(new(userAction.ID,
+                                    trigger,
+                                    systemAction.Type,
+                                    DomainEntityType.Task,
+                                    DomainEntityType.User,
+                                    userAction.TargetID,
+                                    user.Id,
+                                    null));
                 }
 
                 break;
@@ -770,18 +795,19 @@ public static class WorkflowEngine
         return issuedActions;
     }
 
-    public static async Task<List<IssuedAction>> GenerateIssuedActionsFromUserAction(AppDbContext context, UserAction userAction, int projectID)
+    public static async Task<List<IssuedAction>> GenerateIssuedActionsFromUserAction(AppDbContext context, UserAction userAction)
     {
         List<IssuedAction> issuedActions = [];
         List<Trigger> triggers = [];
 
-        issuedActions.Add(new(Trigger.UserAction,
-                              userAction.ActionType,
-                              userAction.TargetType,
-                              userAction.RelatedEntityType,
-                              userAction.TargetID,
-                              userAction.RelatedEntityID,
-                              userAction.Change));
+        issuedActions.Add(new(userAction.ID,
+                        Trigger.UserAction,
+                        userAction.ActionType,
+                        userAction.TargetType,
+                        userAction.RelatedEntityType,
+                        userAction.TargetID,
+                        userAction.RelatedEntityID,
+                        userAction.Change));
 
         triggers.AddRange(GetTriggersFromActionType(userAction.ActionType, userAction.TargetType, userAction.RelatedEntityType, userAction.Change));
 
@@ -798,12 +824,12 @@ public static class WorkflowEngine
 
             foreach (var state in states)
             {
-                var systemActions = await Propagate(context, projectID, trigger, state);
+                var systemActions = await Propagate(context, userAction.ProjectID, trigger, state);
 
                 foreach (var systemAction in systemActions)
                 {
                     triggers.AddRange(GetTriggersFromActionType(systemAction.Type, userAction.TargetType, userAction.RelatedEntityType, userAction.Change));
-                    issuedActions.AddRange(await GenerateIssuedActionsFromSystemAction(context, trigger, userAction, systemAction, projectID));
+                    issuedActions.AddRange(await GenerateIssuedActionsFromSystemAction(context, trigger, userAction, systemAction));
                 }
             }
 
@@ -819,14 +845,10 @@ public static class WorkflowEngine
 
     public static List<EntityIdPair> ConstructEntityIdPairs(List<IssuedAction> issuedActions)
     {
-        List<EntityIdPair> pairs = [];
-
-        foreach (var issuedAction in issuedActions)
-        {
-            pairs.Add(new(issuedAction.TargetID, issuedAction.TargetType));
-        }
-
-        return pairs;
+        return issuedActions
+            .Select(a => new EntityIdPair(a.TargetID, a.TargetType))
+            .Distinct()
+            .ToList();
     }
 
     public static async Task<bool> ValidateIssuedActionSet(AppDbContext context, List<IssuedAction> issuedActions, Dictionary<EntityIdPair, int> entityVersions)
@@ -880,12 +902,8 @@ public static class WorkflowEngine
         return true;
     }
 
-    public static async Task ExecutePendingIssuedActions(AppDbContext context)
+    public static async Task ExecuteIssuedActions(AppDbContext context, List<IssuedAction> issuedActions)
     {
-        var issuedActions = await context.IssuedActions
-            .Where(ia => ia.Status == IssuedActionStatus.Pending)
-            .ToListAsync();
-        
         foreach (var issuedAction in issuedActions)
         {
             switch (issuedAction.ActionType)

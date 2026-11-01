@@ -6,6 +6,7 @@ namespace Infrastructure.Entities;
 public class IssuedAction
 {
     public int ID {get; private set;}
+    public int UserActionID {get; private set;}
     public Trigger Trigger {get; private set;}
     public ActionType ActionType {get; private set;}
     public DomainEntityType TargetType {get; private set;}
@@ -17,8 +18,9 @@ public class IssuedAction
     public DateTime? ExecutedAt {get; private set;}
     public IssuedActionStatus Status {get; private set;}
 
-    public IssuedAction(Trigger trigger, ActionType actionType, DomainEntityType targetType, DomainEntityType? relatedEntityType, int targetID, int? relatedEntityID, Change? change)
+    public IssuedAction(int userActionID, Trigger trigger, ActionType actionType, DomainEntityType targetType, DomainEntityType? relatedEntityType, int targetID, int? relatedEntityID, Change? change)
     {
+        UserActionID = userActionID;
         Trigger = trigger;
         ActionType = actionType;
         TargetType = targetType;

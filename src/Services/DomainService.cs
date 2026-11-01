@@ -5,6 +5,7 @@ using Infrastructure.Entities;
 using Infrastructure.Enums;
 using Services.Exceptions;
 using Microsoft.EntityFrameworkCore;
+using Workflow.Enums;
 
 namespace Services;
 
@@ -14,6 +15,19 @@ public static class DomainService
     {
         return await context.ProjectAssignments
             .AnyAsync(pa => pa.UserID == userID && pa.ProjectID == projectID);
+    }
+
+    public static async Task<bool> IsUserProjectManager(AppDbContext context, int userID, int projectID)
+    {
+        var project = await GetProjectByID(context, projectID);
+
+        if (userID == project.OwnerID)
+        {
+            return true;
+        }
+
+        return await context.ProjectAssignments
+            .AnyAsync(pa => pa.UserID == userID && pa.ProjectID == projectID && pa.Role == ProjectRole.Manager);
     }
 
     public static async Task<bool> IsProjectDuplicate(AppDbContext context, int ownerID, string projectName, int? projectID = null)
@@ -33,6 +47,28 @@ public static class DomainService
     {
         return await context.Tags
             .AnyAsync(t => t.ID != tagID && t.ProjectID == projectID && t.Name == tagName);
+    }
+
+    public static bool RequiresOwnerPrivileges(ActionType actionType, DomainEntityType targetType)
+    {
+        if ((actionType == ActionType.DeleteEntity && targetType == DomainEntityType.Project)
+         || (actionType == ActionType.ChangeAttribute && targetType == DomainEntityType.Project)
+         || (actionType == ActionType.ChangeUserRole))
+        {
+            return true;
+        }
+
+        return false;
+    }
+
+    public static bool RequiresManagerPrivileges(ActionType actionType, DomainEntityType targetType)
+    {
+        if (actionType == ActionType.ChangeAttribute && targetType != DomainEntityType.Project)
+        {
+            return false;
+        }
+
+        return true;
     }
 
     public static async Task<Project> GetProjectByID(AppDbContext context, int projectID)
@@ -406,12 +442,15 @@ public static class DomainService
                         case DomainEntityStatus.Completed:
                             project.Complete();
                             break;
+                        
+                        default:
+                            throw new UnexpectedProjectStatusException();
                     }
                 }
 
                 if (change.Name is not null
-                    || change.Description is not null
-                    || change.Status is not null)
+                 || change.Description is not null
+                 || change.Status is not null)
                 {
                     project.IncreaseVersion();                        
                 }
@@ -460,29 +499,22 @@ public static class DomainService
                         case DomainEntityStatus.Completed:
                             task.Complete();
                             break;
+                        
+                        default:
+                            throw new UnexpectedTaskStatusException();
                     }
                 }
 
                 if (change.Priority is not null)
                 {
-                    switch (change.Priority)
+                    task.Priority = change.Priority switch
                     {
-                        case TaskItemPriority.Low:
-                            task.Priority = TaskItemPriority.Low;
-                            break;
-
-                        case TaskItemPriority.Medium:
-                            task.Priority = TaskItemPriority.Medium;
-                            break;
-                        
-                        case TaskItemPriority.High:
-                            task.Priority = TaskItemPriority.High;
-                            break;
-                        
-                        case TaskItemPriority.Urgent:
-                            task.Priority = TaskItemPriority.Urgent;
-                            break;
-                    }
+                        TaskItemPriority.Low => TaskItemPriority.Low,
+                        TaskItemPriority.Medium => TaskItemPriority.Medium,
+                        TaskItemPriority.High => TaskItemPriority.High,
+                        TaskItemPriority.Urgent => TaskItemPriority.Urgent,
+                        _ => throw new UnexpectedTaskPriorityException(),
+                    };
                 }
 
                 if (change.DueDateChanged)
