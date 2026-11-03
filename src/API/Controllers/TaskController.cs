@@ -2,7 +2,6 @@ using Infrastructure.Database;
 using Domain.Entities;
 using Services;
 using Services.Exceptions;
-using API.Requests;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Authorization;
@@ -50,32 +49,6 @@ public class TaskController: ControllerBase
             TaskResponse taskResponse = new(task.ID, task.ProjectID, task.Name, task.Description, task.Status, task.Priority, task.DueDate, task.CreatedAt, task.CompletedAt, task.Version);
 
             return Ok(taskResponse);
-        }
-    }
-
-    [Authorize]
-    [HttpPost]
-    public async Task<IActionResult> CreateTask([FromBody] CreateTaskRequest request)
-    {
-        var user = await _userManager.GetUserAsync(User);
-
-        if (user is null)
-        {
-            throw new InexistentUserException();
-        }
-
-        using (var context = AppDbContextFactory.CreateContext())
-        {
-            TaskItem task = new(request.ProjectID, request.Name, request.Description, request.Status, request.Priority, request.DueDate, null, null, null);
-            
-            await DomainService.CreateTask(context, task);
-            await context.SaveChangesAsync();
-
-            return CreatedAtAction(
-                nameof(GetTask),
-                new {id = task.ID},
-                new {task.ID, task.Name}
-            );
         }
     }
 }

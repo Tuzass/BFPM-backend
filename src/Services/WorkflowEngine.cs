@@ -401,38 +401,33 @@ public static class WorkflowEngine
                 return triggers;
             
             case ActionType.ChangeAttribute:
-                if (change is null)
-                {
-                    throw new NullReferenceException();
-                }
-
                 switch (entityType)
                 {
                     case DomainEntityType.Tag:
                         return [Trigger.TagNameChanged];
                     
                     case DomainEntityType.Task:
-                        if (change.Name is not null)
+                        if (change!.Name is not null)
                         {
                             triggers.Add(Trigger.TaskNameChanged);
                         }
 
-                        if (change.Description is not null)
+                        if (change!.Description is not null)
                         {
                             triggers.Add(Trigger.TaskDescriptionChanged);
                         }
 
-                        if (change.Status is not null)
+                        if (change!.Status is not null)
                         {
                             triggers.Add(Trigger.TaskStatusChanged);
                         }
 
-                        if (change.Priority is not null)
+                        if (change!.Priority is not null)
                         {
                             triggers.Add(Trigger.TaskPriorityChanged);
                         }
 
-                        if (change.DueDateChanged)
+                        if (change!.DueDateChanged)
                         {
                             triggers.Add(Trigger.TaskDueDateChanged);
                         }
@@ -440,17 +435,17 @@ public static class WorkflowEngine
                         return triggers;
                     
                     case DomainEntityType.Project:
-                        if (change.Name is not null)
+                        if (change!.Name is not null)
                         {
                             triggers.Add(Trigger.ProjectNameChanged);
                         }
 
-                        if (change.Description is not null)
+                        if (change!.Description is not null)
                         {
                             triggers.Add(Trigger.ProjectDescriptionChanged);
                         }
 
-                        if (change.Status is not null)
+                        if (change!.Status is not null)
                         {
                             triggers.Add(Trigger.ProjectStatusChanged);
                         }
@@ -617,12 +612,7 @@ public static class WorkflowEngine
         switch (trigger)
         {
             case Trigger.UserUnassignedFromTask:
-                if (relatedEntityID is null)
-                {
-                    throw new UnexpectedEntityTypeException();
-                }
-
-                if (await EvaluateNoUsersAssignedToInProgressTask(context, relatedEntityID.Value))
+                if (await EvaluateNoUsersAssignedToInProgressTask(context, relatedEntityID!.Value))
                 {
                     states.Add(State.NoUsersAssignedToInProgressTask);
                 }
@@ -650,21 +640,11 @@ public static class WorkflowEngine
                 break;
             
             case Trigger.TaskStatusChanged:
-                if (change is null)
-                {
-                    throw new NullReferenceException();
-                }
-
-                states = await GetStatesFromTaskStatusChange(context, targetID, change);
+                states = await GetStatesFromTaskStatusChange(context, targetID, change!);
                 break;
             
             case Trigger.ProjectStatusChanged:
-                if (change is null)
-                {
-                    throw new NullReferenceException();
-                }
-
-                states = await GetStatesFromProjectStatusChange(context, targetID, change);
+                states = await GetStatesFromProjectStatusChange(context, targetID, change!);
                 break;
         }
 
@@ -691,18 +671,13 @@ public static class WorkflowEngine
                             _ => DomainEntityStatus.Todo
                         };
 
-                        if (userAction.RelatedEntityID is null)
-                        {
-                            throw new NullReferenceException();
-                        }
-
-                        Change change = new(DomainEntityType.Task, userAction.RelatedEntityID.Value, null, null, null, status);
+                        Change change = new(DomainEntityType.Task, userAction.RelatedEntityID!.Value, null, null, null, status);
                         issuedActions.Add(new(userAction.ID,
                                         trigger,
                                         systemAction.Type,
                                         DomainEntityType.Task,
                                         null,
-                                        userAction.RelatedEntityID.Value,
+                                        userAction.RelatedEntityID!.Value,
                                         null,
                                         change));
                         
@@ -920,26 +895,12 @@ public static class WorkflowEngine
                     switch (issuedAction.TargetType)
                     {
                         case DomainEntityType.Task:
-                            if (issuedAction.Change is null
-                                || issuedAction.RelatedEntityType is null
-                                || issuedAction.RelatedEntityID is null)
-                            {
-                                throw new NullReferenceException();
-                            }
-
-                            var task = await DomainService.CreateTaskFromChange(context, issuedAction.RelatedEntityID.Value, issuedAction.Change);
+                            var task = await DomainService.CreateTaskFromChange(context, issuedAction.RelatedEntityID!.Value, issuedAction.Change!);
                             await DomainService.CreateTask(context, task);
                             break;
                         
                         case DomainEntityType.Tag:
-                            if (issuedAction.Change is null
-                                || issuedAction.Change.Name is null
-                                || issuedAction.RelatedEntityID is null)
-                            {
-                                throw new NullReferenceException();
-                            }
-
-                            await DomainService.CreateTag(context, new(issuedAction.RelatedEntityID.Value, issuedAction.Change.Name));
+                            await DomainService.CreateTag(context, new(issuedAction.RelatedEntityID!.Value, issuedAction.Change!.Name!));
                             break;
                         
                         default:
@@ -970,42 +931,22 @@ public static class WorkflowEngine
                     break;
                 
                 case ActionType.ChangeAttribute:
-                    if (issuedAction.Change is null)
-                    {
-                        throw new NullReferenceException();
-                    }
-                    
-                    await DomainService.ApplyChange(context, issuedAction.Change);
+                    await DomainService.ApplyChange(context, issuedAction.Change!);
                     break;
                 
                 case ActionType.ChangeUserRole:
-                    if (issuedAction.Change is null || issuedAction.Change.Role is null || issuedAction.RelatedEntityID is null)
-                    {
-                        throw new NullReferenceException();
-                    }
-
-                    await DomainService.ChangeUserRole(context, issuedAction.RelatedEntityID.Value, issuedAction.TargetID, issuedAction.Change.Role.Value);
+                    await DomainService.ChangeUserRole(context, issuedAction.RelatedEntityID!.Value, issuedAction.TargetID, issuedAction.Change!.Role!.Value);
                     break;
                 
                 case ActionType.AssignUser:
                     switch (issuedAction.RelatedEntityType)
                     {
                         case DomainEntityType.Project:
-                            if (issuedAction.Change is null || issuedAction.Change.Role is null || issuedAction.RelatedEntityID is null)
-                            {
-                                throw new NullReferenceException();
-                            }
-
-                            await DomainService.AssignUserToProject(context, issuedAction.TargetID, issuedAction.RelatedEntityID.Value, issuedAction.Change.Role.Value);
+                            await DomainService.AssignUserToProject(context, issuedAction.TargetID, issuedAction.RelatedEntityID!.Value, issuedAction.Change!.Role!.Value);
                             break;
                         
                         case DomainEntityType.Task:
-                            if (issuedAction.RelatedEntityID is null)
-                            {
-                                throw new NullReferenceException();
-                            }
-
-                            await DomainService.AssignUserToTask(context, issuedAction.TargetID, issuedAction.RelatedEntityID.Value);
+                            await DomainService.AssignUserToTask(context, issuedAction.TargetID, issuedAction.RelatedEntityID!.Value);
                             break;
                         
                         default:
@@ -1018,21 +959,11 @@ public static class WorkflowEngine
                     switch (issuedAction.RelatedEntityType)
                     {
                         case DomainEntityType.Project:
-                            if (issuedAction.RelatedEntityID is null)
-                            {
-                                throw new NullReferenceException();
-                            }
-
-                            await DomainService.UnassignUserFromProject(context, issuedAction.TargetID, issuedAction.RelatedEntityID.Value);
+                            await DomainService.UnassignUserFromProject(context, issuedAction.TargetID, issuedAction.RelatedEntityID!.Value);
                             break;
                         
                         case DomainEntityType.Task:
-                            if (issuedAction.RelatedEntityID is null)
-                            {
-                                throw new NullReferenceException();
-                            }
-
-                            await DomainService.UnassignUserFromTask(context, issuedAction.TargetID, issuedAction.RelatedEntityID.Value);
+                            await DomainService.UnassignUserFromTask(context, issuedAction.TargetID, issuedAction.RelatedEntityID!.Value);
                             break;
                         
                         default:

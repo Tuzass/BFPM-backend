@@ -30,16 +30,7 @@ public class TaskItem
         DueDate = dueDate;
         CreatedAt = (createdAt == null) ? DateTime.UtcNow : (DateTime)createdAt;
         CompletedAt = completedAt;
-
-        if (version is null)
-        {
-            Version = 1;
-        }
-
-        else
-        {
-            Version = version.Value;
-        }
+        Version = version is null ? 1 : version.Value;
     }
 
     public void IncreaseVersion()

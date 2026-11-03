@@ -16,16 +16,7 @@ public class Tag
     {
         ProjectID = projectID;
         Name = name;
-
-        if (version is null)
-        {
-            Version = 1;
-        }
-
-        else
-        {
-            Version = version.Value;
-        }
+        Version = version is null ? 1 : version.Value;
     }
 
     public void IncreaseVersion()
