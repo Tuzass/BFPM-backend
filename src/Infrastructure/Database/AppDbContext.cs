@@ -25,6 +25,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : IdentityDbCo
     public DbSet<TaskAssignment> TaskAssignments {get; set;}
     public DbSet<NotificationPreference> NotificationPreferences {get; set;}
     public DbSet<SystemActionPreference> SystemActionPreferences {get; set;}
+    public DbSet<ProjectReservation> ProjectReservations {get; set;}
     
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -36,6 +37,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : IdentityDbCo
         modelBuilder.Entity<User>()
             .Property(u => u.UserName)
             .HasColumnType("citext");
+        
+        modelBuilder.Entity<User>()
+            .HasIndex(u => u.UserName).IsUnique();
 
         modelBuilder.Entity<User>()
             .HasIndex(u => u.Email).IsUnique();
@@ -215,5 +219,21 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : IdentityDbCo
         
         modelBuilder.Entity<SystemActionPreference>()
             .HasKey(sap => new {sap.RuleID, sap.ActionID, sap.ProjectID});
+        
+        modelBuilder.Entity<ProjectReservation>()
+            .HasIndex(pr => new {pr.ProjectID})
+            .IsUnique();
+            
+        modelBuilder.Entity<ProjectReservation>()
+            .HasOne<Project>()
+            .WithMany()
+            .HasForeignKey(pr => pr.ProjectID)
+            .OnDelete(DeleteBehavior.Cascade);
+        
+        modelBuilder.Entity<ProjectReservation>()
+            .HasOne<UserAction>()
+            .WithMany()
+            .HasForeignKey(pr => pr.UserActionID)
+            .OnDelete(DeleteBehavior.Cascade);
     }
 }
