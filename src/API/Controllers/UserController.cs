@@ -6,6 +6,7 @@ using API.Requests;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Authorization;
+using API.Responses;
 
 namespace API.Controllers;
 
@@ -38,9 +39,9 @@ public class UserController: ControllerBase
 
         return Ok(new
         {
-            user.Id,
-            user.UserName,
-            user.Email
+            id = user.Id,
+            username = user.UserName,
+            email = user.Email
         });
     }
 
@@ -50,14 +51,9 @@ public class UserController: ControllerBase
     {
         using (var context = AppDbContextFactory.CreateContext())
         {
-            var user = await UserService.GetUserByID(context, id);   
-
-            return Ok(new
-            {
-                user.Id,
-                user.UserName,
-                user.Email
-            });
+            var user = await UserService.GetUserByID(context, id);
+            UserResponse userResponse = new(user.Id, user.UserName!, user.Email!);
+            return Ok(userResponse);
         }
     }
 
@@ -66,15 +62,26 @@ public class UserController: ControllerBase
     {
         if (await UserService.IsUsernameDuplicate(request.UserName))
         {
-            throw new DuplicateUsernameException();
+            RegisterConflictResponse registerConflictResponse = new(
+                "This username is already taken.",
+                "username"
+            );
+
+            return Conflict(registerConflictResponse);
         }
 
         if (await UserService.IsEmailDuplicate(request.Email))
         {
-            throw new DuplicateEmailException();
+            RegisterConflictResponse registerConflictResponse = new(
+                "This email address is already registered.",
+                "email"
+            );
+
+            return Conflict(registerConflictResponse);
         }
 
         User user = new(request.UserName, request.Email);
+        UserResponse userResponse = new(user.Id, user.UserName!, user.Email!);
         var result = await _userManager.CreateAsync(user, request.Password);
 
         if (!result.Succeeded)
@@ -87,7 +94,7 @@ public class UserController: ControllerBase
         return CreatedAtAction(
             nameof(GetUser),
             new {id = user.Id},
-            new {user.Id, user.UserName, user.Email}
+            userResponse
         );
 
         // TODO: add email activation at some step i guess?
