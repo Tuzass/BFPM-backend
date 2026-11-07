@@ -81,8 +81,8 @@ public class UserController: ControllerBase
         }
 
         User user = new(request.UserName, request.Email);
-        UserResponse userResponse = new(user.Id, user.UserName!, user.Email!);
         var result = await _userManager.CreateAsync(user, request.Password);
+        UserResponse userResponse = new(user.Id, user.UserName!, user.Email!);
 
         if (!result.Succeeded)
         {
