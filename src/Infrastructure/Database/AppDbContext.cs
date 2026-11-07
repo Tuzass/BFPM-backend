@@ -235,5 +235,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : IdentityDbCo
             .WithMany()
             .HasForeignKey(pr => pr.UserActionID)
             .OnDelete(DeleteBehavior.Cascade);
+        
+        modelBuilder.Entity<ProjectReservation>()
+            .HasKey(pr => new {pr.ProjectID, pr.UserActionID});
     }
 }

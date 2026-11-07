@@ -204,6 +204,9 @@ namespace Infrastructure.Migrations
                         .IsUnique()
                         .HasDatabaseName("UserNameIndex");
 
+                    b.HasIndex("UserName")
+                        .IsUnique();
+
                     b.ToTable("AspNetUsers", (string)null);
                 });
 
@@ -271,6 +274,9 @@ namespace Infrastructure.Migrations
                         .HasColumnType("integer");
 
                     b.Property<int>("Trigger")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("UserActionID")
                         .HasColumnType("integer");
 
                     b.ComplexProperty(typeof(Dictionary<string, object>), "Change", "Infrastructure.Entities.IssuedAction.Change#Change", b1 =>
@@ -408,6 +414,24 @@ namespace Infrastructure.Migrations
                     b.ToTable("ProjectAssignments");
                 });
 
+            modelBuilder.Entity("Infrastructure.Entities.ProjectReservation", b =>
+                {
+                    b.Property<int>("ProjectID")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("UserActionID")
+                        .HasColumnType("integer");
+
+                    b.HasKey("ProjectID", "UserActionID");
+
+                    b.HasIndex("ProjectID")
+                        .IsUnique();
+
+                    b.HasIndex("UserActionID");
+
+                    b.ToTable("ProjectReservations");
+                });
+
             modelBuilder.Entity("Infrastructure.Entities.RequestedAction", b =>
                 {
                     b.Property<int>("ID")
@@ -503,6 +527,9 @@ namespace Infrastructure.Migrations
 
                     b.Property<DateTime?>("ProcessedAt")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("ProjectID")
+                        .HasColumnType("integer");
 
                     b.Property<int?>("RelatedEntityID")
                         .HasColumnType("integer");
@@ -821,6 +848,21 @@ namespace Infrastructure.Migrations
                     b.HasOne("Domain.Entities.User", null)
                         .WithMany()
                         .HasForeignKey("UserID")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Infrastructure.Entities.ProjectReservation", b =>
+                {
+                    b.HasOne("Domain.Entities.Project", null)
+                        .WithMany()
+                        .HasForeignKey("ProjectID")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Infrastructure.Entities.UserAction", null)
+                        .WithMany()
+                        .HasForeignKey("UserActionID")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
