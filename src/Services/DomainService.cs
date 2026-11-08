@@ -255,7 +255,7 @@ public static class DomainService
             ).ToListAsync();
     }
 
-    public static async Task<int> UploadProject(AppDbContext context, Project project, List<TaskItem> tasks, List<Tag> tags, List<TaskTagLink> taskTagLinks)
+    public static async Task<int> CreateProject(AppDbContext context, Project project, List<TaskItem> tasks, List<Tag> tags, List<TaskTagLink> taskTagLinks)
     {
         var isDuplicate = await context.Projects
             .AnyAsync(p => p.OwnerID == project.OwnerID && p.Name == project.Name);

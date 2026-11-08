@@ -119,12 +119,12 @@ public class ProjectController: ControllerBase
                 taskTagLinks.Add(new(link.TaskID, link.TagID));
             }
             
-            var projectID = await DomainService.UploadProject(context, project, tasks, tags, taskTagLinks);
+            var projectID = await DomainService.CreateProject(context, project, tasks, tags, taskTagLinks);
 
             return CreatedAtAction(
                 nameof(GetProject),
                 new {id = projectID},
-                new {project.ID, project.Name}
+                project
             );
         }
     }
