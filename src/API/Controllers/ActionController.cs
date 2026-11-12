@@ -125,7 +125,10 @@ public class ActionController: ControllerBase
                     return CreatedAtAction(
                         nameof(SendVersions),
                         new {id = userAction.ID},
-                        new {affected_entities = entityIdPairs}
+                        new {
+                            id = userAction.ID,
+                            affected_entities = entityIdPairs
+                        }
                     );
                 }
             }
