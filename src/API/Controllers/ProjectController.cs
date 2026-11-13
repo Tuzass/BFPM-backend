@@ -27,7 +27,7 @@ public class ProjectController: ControllerBase
         
     }
 
-    private static async Task<FullProjectResponse> GetFullProjectResponse(AppDbContext context, int userID, int projectID)
+    private static async Task<ProjectResponse> GetProjectResponse(AppDbContext context, int userID, int projectID)
     {
         var project = await DomainService.GetProjectByID(context, projectID);
 
@@ -85,8 +85,55 @@ public class ProjectController: ControllerBase
 
         using (var context = AppDbContextFactory.CreateContext())
         {
-            var projectResponse = await GetFullProjectResponse(context, user.Id, id);
+            var projectResponse = await GetProjectResponse(context, user.Id, id);
             return Ok(projectResponse);
+        }
+    }
+
+    [Authorize]
+    [HttpPost("batch")]
+    public async Task<IActionResult> GetProjectBatch([FromBody] List<int> projectIDs)
+    {
+        var user = await _userManager.GetUserAsync(User);
+
+        if (user is null)
+        {
+            throw new InexistentUserException();
+        }
+
+        if (projectIDs.Count == 0)
+        {
+            return Ok(new {projects = new List<ProjectResponse>()});
+        }
+
+        if (projectIDs.Count > 100)
+        {
+            return BadRequest("Please make sure your ID list contains 100 or less elements.");
+        }
+
+        using (var context = AppDbContextFactory.CreateContext())
+        {
+            List<ProjectResponse> projectResponses = [];
+            
+            foreach (var id in projectIDs.Distinct())
+            {
+                if (id <= 0)
+                {
+                    continue;
+                }
+
+                try
+                {   
+                    projectResponses.Add(await GetProjectResponse(context, user.Id, id));
+                }
+
+                catch (InexistentProjectException)
+                {
+                    
+                }
+            }
+
+            return Ok(new {projects = projectResponses});
         }
     }
 
@@ -128,7 +175,7 @@ public class ProjectController: ControllerBase
             try
             {   
                 var projectID = await DomainService.CreateProject(context, project, tasks, tags, taskTagLinks);
-                var projectResponse = await GetFullProjectResponse(context, user.Id, projectID);
+                var projectResponse = await GetProjectResponse(context, user.Id, projectID);
 
                 return CreatedAtAction(
                     nameof(GetFullProject),

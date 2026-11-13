@@ -59,20 +59,19 @@ public class UserController: ControllerBase
 
     [Authorize]
     [HttpGet("{id:int}/projects")]
-    public async Task<IActionResult> GetUserProjects(int id)
+    public async Task<IActionResult> GetUserProjectIDs(int id)
     {
         using (var context = AppDbContextFactory.CreateContext())
         {
             var projects = await DomainService.GetProjectsByUser(context, id);
             
-            List<ProjectResponse> projectResponses = [];
+            List<int> projectIDs = [];
             foreach (var project in projects)
             {
-                var owner = await UserService.GetUserByID(context, project.OwnerID);
-                projectResponses.Add(new(project.ID, project.Name, project.Description, project.OwnerID, owner.UserName!, project.Status, project.CreatedAt, project.CompletedAt, project.Version));
+                projectIDs.Add(project.ID);
             }
 
-            return Ok(new {projects = projectResponses});
+            return Ok(new {project_ids = projectIDs});
         }
     }
 
