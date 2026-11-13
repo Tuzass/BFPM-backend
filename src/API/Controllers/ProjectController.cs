@@ -27,6 +27,51 @@ public class ProjectController: ControllerBase
         
     }
 
+    private async Task<ProjectResponse> GetProjectResponse(AppDbContext context, int userID, int projectID)
+    {
+        var project = await DomainService.GetProjectByID(context, projectID);
+
+        if (project.OwnerID != userID && !await DomainService.IsUserAssignedToProject(context, userID, projectID))
+        {
+            throw new Services.Exceptions.UnauthorizedAccessException();
+        }
+
+        var tasks = await DomainService.GetTasksByProject(context, projectID);
+        var tags = await DomainService.GetTagsByProject(context, projectID);
+        var taskTagLinks = await DomainService.GetTaskTagLinksByProject(context, projectID);
+        var assignedUsers = await DomainService.GetProjectMembers(context, projectID);
+
+        List<TaskResponse> taskResponses = [];
+        List<TagResponse> tagResponses = [];
+        List<TaskTagLinkResponse> taskTagLinkResponses = [];
+        List<UserAssignmentResponse> userAssignments = [];
+
+        foreach (var task in tasks)
+        {
+            taskResponses.Add(new(task.ID, task.ProjectID, task.Name, task.Description, task.Status, task.Priority, task.DueDate, task.CreatedAt, task.CompletedAt, task.Version));
+        }
+
+        foreach (var tag in tags)
+        {
+            tagResponses.Add(new(tag.ID, tag.ProjectID, tag.Name, tag.Version));
+        }
+
+        foreach (var link in taskTagLinks)
+        {
+            taskTagLinkResponses.Add(new(link.TaskID, link.TagID));
+        }
+
+        foreach (var u in assignedUsers)
+        {
+            var role = await DomainService.GetUserRoleInProject(context, u.Id, projectID);
+            userAssignments.Add(new(u.Id, u.UserName!, role));
+        }
+
+        var owner = await UserService.GetUserByID(context, project.OwnerID);
+
+        return new(project.ID, project.Name, project.Description, project.OwnerID, owner.UserName!, project.Status, project.CreatedAt, project.CompletedAt, project.Version, taskResponses, tagResponses, taskTagLinkResponses, userAssignments);
+    }
+
     [Authorize]
     [HttpGet("{id:int}")]
     public async Task<IActionResult> GetProject(int id)
@@ -40,46 +85,7 @@ public class ProjectController: ControllerBase
 
         using (var context = AppDbContextFactory.CreateContext())
         {
-            var project = await DomainService.GetProjectByID(context, id);
-
-            if (project.OwnerID != user.Id && !await DomainService.IsUserAssignedToProject(context, user.Id, id))
-            {
-                throw new Services.Exceptions.UnauthorizedAccessException();
-            }
-
-            var tasks = await DomainService.GetTasksByProject(context, id);
-            var tags = await DomainService.GetTagsByProject(context, id);
-            var taskTagLinks = await DomainService.GetTaskTagLinksByProject(context, id);
-            var assignedUsers = await DomainService.GetProjectMembers(context, id);
-
-            List<TaskResponse> taskResponses = [];
-            List<TagResponse> tagResponses = [];
-            List<TaskTagLinkResponse> taskTagLinkResponses = [];
-            List<UserAssignmentResponse> userAssignments = [];
-
-            foreach (var task in tasks)
-            {
-                taskResponses.Add(new(task.ID, task.ProjectID, task.Name, task.Description, task.Status, task.Priority, task.DueDate, task.CreatedAt, task.CompletedAt, task.Version));
-            }
-
-            foreach (var tag in tags)
-            {
-                tagResponses.Add(new(tag.ID, tag.ProjectID, tag.Name, tag.Version));
-            }
-
-            foreach (var link in taskTagLinks)
-            {
-                taskTagLinkResponses.Add(new(link.TaskID, link.TagID));
-            }
-
-            foreach (var u in assignedUsers)
-            {
-                var role = await DomainService.GetUserRoleInProject(context, u.Id, id);
-                userAssignments.Add(new(u.Id, u.UserName!, role));
-            }
-
-            ProjectResponse projectResponse = new(project.ID, project.Name, project.Description, user.Id, user.UserName!, project.Status, project.CreatedAt, project.CompletedAt, project.Version, taskResponses, tagResponses, taskTagLinkResponses, userAssignments);
-
+            var projectResponse = await GetProjectResponse(context, user.Id, id);
             return Ok(projectResponse);
         }
     }
@@ -122,11 +128,12 @@ public class ProjectController: ControllerBase
             try
             {   
                 var projectID = await DomainService.CreateProject(context, project, tasks, tags, taskTagLinks);
+                var projectResponse = await GetProjectResponse(context, user.Id, projectID);
 
                 return CreatedAtAction(
                     nameof(GetProject),
                     new {id = projectID},
-                    new {id = projectID}
+                    projectResponse
                 );
             }
 
