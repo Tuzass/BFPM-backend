@@ -57,6 +57,25 @@ public class UserController: ControllerBase
         }
     }
 
+    [Authorize]
+    [HttpGet("{id:int}/projects")]
+    public async Task<IActionResult> GetUserProjects(int id)
+    {
+        using (var context = AppDbContextFactory.CreateContext())
+        {
+            var projects = await DomainService.GetProjectsByUser(context, id);
+            
+            List<ProjectResponse> projectResponses = [];
+            foreach (var project in projects)
+            {
+                var owner = await UserService.GetUserByID(context, project.OwnerID);
+                projectResponses.Add(new(project.ID, project.Name, project.Description, project.OwnerID, owner.UserName!, project.Status, project.CreatedAt, project.CompletedAt, project.Version));
+            }
+
+            return Ok(new {projects = projectResponses});
+        }
+    }
+
     [HttpPost]
     public async Task<IActionResult> RegisterUser([FromBody] RegisterRequest request)
     {

@@ -152,7 +152,7 @@ public static class DomainService
 
     public static async Task<List<Project>> GetProjectsByUser(AppDbContext context, int userID)
     {
-        return await context.ProjectAssignments
+        var assignedProjects = await context.ProjectAssignments
             .Where(pa => pa.UserID == userID)
             .Join(
                 context.Projects,
@@ -160,6 +160,13 @@ public static class DomainService
                 p => p.ID,
                 (pa, p) => p)
             .ToListAsync();
+        
+        var ownedProjects = await context.Projects
+            .Where(p => p.OwnerID == userID)
+            .ToListAsync();
+        
+        ownedProjects.AddRange(assignedProjects);
+        return ownedProjects;
     }
 
     public static async Task<List<TaskItem>> GetTasksByProject(AppDbContext context, int projectID)

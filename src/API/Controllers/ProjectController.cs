@@ -27,7 +27,7 @@ public class ProjectController: ControllerBase
         
     }
 
-    private async Task<ProjectResponse> GetProjectResponse(AppDbContext context, int userID, int projectID)
+    private static async Task<FullProjectResponse> GetFullProjectResponse(AppDbContext context, int userID, int projectID)
     {
         var project = await DomainService.GetProjectByID(context, projectID);
 
@@ -74,7 +74,7 @@ public class ProjectController: ControllerBase
 
     [Authorize]
     [HttpGet("{id:int}")]
-    public async Task<IActionResult> GetProject(int id)
+    public async Task<IActionResult> GetFullProject(int id)
     {
         var user = await _userManager.GetUserAsync(User);
 
@@ -85,7 +85,7 @@ public class ProjectController: ControllerBase
 
         using (var context = AppDbContextFactory.CreateContext())
         {
-            var projectResponse = await GetProjectResponse(context, user.Id, id);
+            var projectResponse = await GetFullProjectResponse(context, user.Id, id);
             return Ok(projectResponse);
         }
     }
@@ -128,10 +128,10 @@ public class ProjectController: ControllerBase
             try
             {   
                 var projectID = await DomainService.CreateProject(context, project, tasks, tags, taskTagLinks);
-                var projectResponse = await GetProjectResponse(context, user.Id, projectID);
+                var projectResponse = await GetFullProjectResponse(context, user.Id, projectID);
 
                 return CreatedAtAction(
-                    nameof(GetProject),
+                    nameof(GetFullProject),
                     new {id = projectID},
                     projectResponse
                 );
